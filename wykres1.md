@@ -37,7 +37,7 @@ Nie pokazuje pojedynczych pomiarów w czasie — pokazuje **podsumowanie całego
 
 ### Linie wewnątrz pudełka
 | Linia | Znaczenie |
-|-------|-----------|
+| ------- | ----------- |
 | Ciągła pozioma | **Mediana** — dokładna połowa pomiarów jest powyżej, połowa poniżej |
 | Przerywana górna | Średnia + 1 odchylenie standardowe |
 | Przerywana środkowa | **Średnia arytmetyczna** wszystkich wartości |
@@ -61,7 +61,7 @@ Nie pokazuje pojedynczych pomiarów w czasie — pokazuje **podsumowanie całego
 ### PM10 (rzeczywiste) — czerwona skrzynka
 
 | Statystyka | Wartość | Interpretacja |
-|-----------|---------|---------------|
+| ----------- | --------- | --------------- |
 | Minimum (bez outlierów) | ~5 µg/m³ | Czyste powietrze przy silnym wietrze (np. 6 kwi., wiatr 9 m/s) |
 | Q1 (25. percentyl) | ~15 µg/m³ | Jedna czwarta godzin miała PM10 poniżej 15 |
 | Mediana | ~24 µg/m³ | Typowa godzinowa wartość PM10 — "normalna" jakość powietrza |
@@ -73,7 +73,7 @@ Nie pokazuje pojedynczych pomiarów w czasie — pokazuje **podsumowanie całego
 ### PM10 (prognoza hist.) — niebieska skrzynka
 
 | Statystyka | Wartość | Interpretacja |
-|-----------|---------|---------------|
+| ----------- | --------- | --------------- |
 | Q1 | ~16 µg/m³ | Model rzadko przewiduje wartości poniżej 16 |
 | Mediana | ~25 µg/m³ | Prognoza "typowej" godziny — zbliżona do rzeczywistości |
 | Q3 | ~35 µg/m³ | Model zachowuje podobny rozkład jak dane rzeczywiste |
@@ -106,7 +106,7 @@ Zakres max:         ~70-82           ~61      ⚠ model niedoszacowuje skrajnych
 ## Normy PM10 dla kontekstu
 
 | Poziom | Wartość | Co oznacza |
-|--------|---------|------------|
+| -------- | --------- | ------------ |
 | WHO (dobowy) | 45 µg/m³ | Zalecenie Światowej Organizacji Zdrowia |
 | UE (dobowy) | 50 µg/m³ | Limit prawny UE (nie może być przekroczony >35 razy/rok) |
 | Alarm smogowy | 150 µg/m³ | Poziom informowania ludności (PL) |

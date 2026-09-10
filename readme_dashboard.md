@@ -30,7 +30,7 @@ do prawej = przyszłość).
 ### Górna część — linia PM10 w czasie
 
 | Element | Co oznacza |
-|---|---|
+| --- | --- |
 | **Niebieska linia ciągła** | Predykcja modelu AI — co model *przewidywał*, że będzie stężenie PM10 |
 | **Czerwone punkty / linia** | Rzeczywiste pomiary ze stacji WAQI w Słupsku — co *faktycznie* zmierzono |
 | **Przerywana linia pionowa** | Granica między przeszłością (lewa) a przyszłością (prawa) |
@@ -94,7 +94,7 @@ Wartość 31 µg/m³ mieści się bezpiecznie poniżej norm.
 System automatycznie zamienia liczbę µg/m³ na zrozumiałą ocenę słowną:
 
 | Stężenie | Jakość |
-|---|---|
+| --- | --- |
 | 0–20 µg/m³ | Bardzo dobra |
 | 21–40 µg/m³ | Dobra |
 | 41–60 µg/m³ | Umiarkowana |
@@ -121,7 +121,7 @@ Metryki mówią nam, jak bardzo model mylił się **w przeszłości**
 model zdał egzamin na znanych już odpowiedziach.
 
 | Metryka | Wartość | Co oznacza |
-|---|---|---|
+| --- | --- | --- |
 | **MAE** (Średni błąd bezwzględny) | 49,31 µg/m³ | Przeciętnie model myli się o ~49 µg/m³. Wysoka wartość wynika z anomalii (~1000 µg/m³) w danych |
 | **RMSE** (Pierwiastek błędu średniokwadratowego) | 211,03 µg/m³ | RMSE „karze bardziej" za duże błędy. Wartość 211 jest ogromna właśnie przez kilka ekstremalnych punktów przy awarii czujnika |
 | **MAPE** (Średni procentowy błąd bezwzględny) | 18,3% | Model myli się średnio o 18,3% wartości rzeczywistej. Bez anomalii to całkiem dobry wynik |
@@ -184,7 +184,7 @@ Czytamy go tak:
 To surowa tabela danych — jak arkusz kalkulacyjny. Zawiera:
 
 | Kolumna | Znaczenie |
-|---|---|
+| --- | --- |
 | **timestamp** | Data i godzina pomiaru lub predykcji |
 | **pm10_true** | Rzeczywisty zmierzony poziom PM10 (µg/m³) — „prawda z czujnika" |
 | **pm10_hist** | Historyczna wartość PM10 używana przez model jako punkt odniesienia (średnia krocząca) |
@@ -201,7 +201,7 @@ Kolory pomagają szybko ocenić jakość predykcji:
 ### Co mówią nam te liczby? — przykłady z tabeli
 
 | Czas | pm10_true | pm10_pred | error | Interpretacja |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 2025-12-31 15:00 | 21,0 | 12,4 | -8,6 | Model niedoszacował o 8,6 µg/m³ |
 | 2025-12-31 18:00 | 28,0 | 10,9 | -17,1 | Duże niedoszacowanie |
 | 2025-12-31 22:00 | 10,0 | 10,7 | +0,7 | Prawie idealne trafienie! |
@@ -285,7 +285,7 @@ przy ul. Kniaziewicza 30, należącej do sieci **GIOŚ**
 ## Słowniczek pojęć
 
 | Pojęcie | Wyjaśnienie |
-|---|---|
+| --- | --- |
 | **µg/m³** | Mikrogram na metr sześcienny — jednostka stężenia zanieczyszczeń w powietrzu |
 | **PM10** | Cząsteczki o średnicy do 10 µm zawieszone w powietrzu |
 | **Stacja WAQI** | Automatyczna stacja pomiarowa powietrza połączona z internetem |

@@ -32,7 +32,7 @@ Każdy słupek = jeden przedział stężeń (np. 10–20 µg/m³).
 
 ### Linie przerywane — normy jakości powietrza
 | Kolor | Wartość | Norma | Znaczenie |
-|-------|---------|-------|-----------|
+| ------- | --------- | ------- | ----------- |
 | Pomarańczowa | 45 µg/m³ | WHO (dobowy) | Zalecenie Światowej Organizacji Zdrowia |
 | Czerwona | 75 µg/m³ | UE × 1,5 | Podwyższone ryzyko zdrowotne |
 | Fioletowa | 150 µg/m³ | Alarm smogowy PL | Poziom informowania ludności |
@@ -47,7 +47,7 @@ Każdy słupek = jeden przedział stężeń (np. 10–20 µg/m³).
 Na podstawie 1677 godzin danych (ok. 70 dni):
 
 | Przedział PM10 | Liczba godzin | Udział | Interpretacja |
-|---------------|---------------|--------|---------------|
+| --------------- | --------------- | -------- | --------------- |
 | 0 – 10 µg/m³ | 218 h | 13,0% | Bardzo czyste — silny wiatr, deszcz |
 | 10 – 20 µg/m³ | 460 h | 27,4% | **Najczęstszy zakres** — dobra jakość powietrza |
 | 20 – 30 µg/m³ | 394 h | 23,5% | Umiarkowana jakość — typowy zimowy dzień |
@@ -100,7 +100,7 @@ godzin
 ### Możliwe kształty histogramów i ich znaczenie
 
 | Kształt | Co oznacza |
-|---------|------------|
+| --------- | ------------ |
 | Skośny w prawo (jak ten) | Typowo czyste, rzadkie epizody smogowe |
 | Skośny w lewo | Częste wysokie stężenia, rzadkie czyste dni |
 | Dwugarbny | Dwa wyraźne tryby — np. sezon letni vs zimowy |
@@ -112,7 +112,7 @@ godzin
 ## Praktyczna interpretacja dla mieszkańca Słupska
 
 | Jeśli PM10 jest... | Co robić |
-|--------------------|----------|
+| -------------------- | ---------- |
 | 0–25 µg/m³ | Powietrze czyste — bieganie, rower, otwarte okna ✓ |
 | 25–45 µg/m³ | Umiarkowane — osoby wrażliwe powinny ograniczyć wysiłek na zewn. |
 | 45–75 µg/m³ | Przekroczenie WHO — unikaj długiego przebywania na zewnątrz |

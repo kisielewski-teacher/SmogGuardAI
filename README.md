@@ -9,7 +9,7 @@ SmogGuardAI to program komputerowy, który automatycznie pobiera dane o jakości
 ## Słowniczek — co oznaczają używane pojęcia?
 
 | Pojęcie | Wyjaśnienie |
-|---|---|
+| --- | --- |
 | **Pipeline** (potok danych) | Ciąg automatycznych kroków wykonywanych jeden po drugim — jak linia produkcyjna w fabryce. Każdy krok pobiera wyniki poprzedniego i produkuje coś nowego. |
 | **Dashboard** (panel wizualizacji) | Strona internetowa otwierana w przeglądarce, która pokazuje wykresy i liczby. Nie wymaga internetu — działa lokalnie na Twoim komputerze. |
 | **Model AI / uczenie maszynowe** | Program, który analizuje tysiące historycznych pomiarów i uczy się wzorców — np. że po silnym wietrze smog spada. Dzięki temu potrafi przewidywać przyszłe wartości. |
@@ -222,7 +222,7 @@ Panel (`src/streamlit_pm10_dashboard.py`) zawiera następujące sekcje:
 ### Wykres główny (PM10 rzeczywiste vs prognoza)
 
 | Element | Opis |
-|---|---|
+| --- | --- |
 | **Linia czerwona** | Rzeczywiste pomiary PM10 (historia) |
 | **Linia pomarańczowa przerywana** | Średnia krocząca 24h — wygładza krótkotrwałe skoki |
 | **Linia niebieska** | Prognoza historyczna (model vs rzeczywistość) |
@@ -259,7 +259,7 @@ Cztery kafelki pokazujące na bieżąco:
 Tabela wszystkich wartości z kolorowaniem komórek wg norm:
 
 | Kolor | Zakres | Jakość |
-|---|---|---|
+| --- | --- | --- |
 | Zielony | < 20 µg/m³ | Bardzo dobra |
 | Żółty | 20–45 µg/m³ | Dobra |
 | Pomarańczowy | 45–75 µg/m³ | Umiarkowana |
@@ -367,7 +367,7 @@ Sprawdź logi w folderze `logs/` — każdy krok potoku zapisuje tam swój rapor
 ## Dane techniczne modelu AI
 
 | Parametr | Wartość |
-|---|---|
+| --- | --- |
 | Algorytm | Random Forest (scikit-learn) |
 | Liczba drzew | 300 |
 | Horyzont prognozy | 24 godziny |
