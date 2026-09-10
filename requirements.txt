@@ -1,0 +1,14 @@
+
+requests
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+python-dateutil
+python-dotenv
+streamlit
+plotly
+joblib
+beautifulsoup4
+pytest
