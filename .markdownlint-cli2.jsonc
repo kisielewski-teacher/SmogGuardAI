@@ -1,0 +1,10 @@
+{
+  // MD013 (line-length) wyłączone celowo: to pliki dokumentacji w języku
+  // polskim, pisane jako ciągła proza (nie zawijana ręcznie do 80 znaków).
+  // Sztywne zawijanie zdań łamałoby czytelność i wymuszałoby ręczne
+  // przepisywanie tekstu bez realnej korzyści.
+  "config": {
+    "default": true,
+    "MD013": false
+  }
+}

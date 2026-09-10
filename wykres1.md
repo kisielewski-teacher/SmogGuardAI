@@ -10,7 +10,7 @@ Nie pokazuje pojedynczych pomiarów w czasie — pokazuje **podsumowanie całego
 
 ## Elementy wykresu — szczegółowy opis
 
-```
+```text
         ┌─── punkt odstający (outlier) — wartość > 1.5 × IQR poza pudełko
         │
   ──────┤  ← górny wąs (whisker) — maksimum bez outlierów (~70 µg/m³ dla czerwonej)
@@ -30,12 +30,14 @@ Nie pokazuje pojedynczych pomiarów w czasie — pokazuje **podsumowanie całego
 ```
 
 ### Pudełko (box)
+
 - **Górna krawędź** = 75. percentyl (Q3) — 75% pomiarów jest PONIŻEJ tej wartości
 - **Dolna krawędź** = 25. percentyl (Q1) — 25% pomiarów jest PONIŻEJ tej wartości
 - **Wysokość pudełka** = IQR (rozstęp międzykwartylowy = Q3 − Q1) — im wyższe, tym większa zmienność danych
 - Pudełko obejmuje **środkowe 50% wszystkich pomiarów**
 
 ### Linie wewnątrz pudełka
+
 | Linia | Znaczenie |
 | ------- | ----------- |
 | Ciągła pozioma | **Mediana** — dokładna połowa pomiarów jest powyżej, połowa poniżej |
@@ -47,10 +49,12 @@ Nie pokazuje pojedynczych pomiarów w czasie — pokazuje **podsumowanie całego
 > oznacza to, że kilka wysokich wartości "ciągnie" średnią w górę — dane są skośne w prawo.
 
 ### Wąsy (whiskers)
+
 - Sięgają do **1,5 × IQR** powyżej Q3 i poniżej Q1
 - Obejmują "normalne" wartości — typowy zakres operacyjny
 
 ### Punkty odstające (outliery)
+
 - Pojedyncze kropki **poza wąsami** — wartości wyjątkowo wysokie lub niskie
 - Na czerwonej skrzynce widoczna kropka przy ~82 µg/m³ — epizod smogowy z silną inwersją
 
@@ -83,7 +87,7 @@ Nie pokazuje pojedynczych pomiarów w czasie — pokazuje **podsumowanie całego
 
 ## Porównanie obu skrzynek — co mówi o modelu?
 
-```
+```text
                    Czerwona        Niebieska
                   (rzeczywiste)   (prognoza)
 Mediana:            ~24              ~25      ✓ zbliżone — model dobrze trafia w środek

@@ -83,13 +83,13 @@ na stacji metra.
 
 ### Lewa strona — aktualny stan
 
-**PM10 (ostatni pomiar): 31,0 µg/m³**
+#### PM10 (ostatni pomiar): 31,0 µg/m³
 
 To ostatnia wartość odczytana ze stacji pomiarowej. Dla porównania:
 norma WHO to 45 µg/m³ na dobę, polska norma to 50 µg/m³.
 Wartość 31 µg/m³ mieści się bezpiecznie poniżej norm.
 
-**Jakość powietrza: Dobra**
+#### Jakość powietrza: Dobra
 
 System automatycznie zamienia liczbę µg/m³ na zrozumiałą ocenę słowną:
 
@@ -103,14 +103,14 @@ System automatycznie zamienia liczbę µg/m³ na zrozumiałą ocenę słowną:
 
 ### Prawa strona — prognoza na następną godzinę
 
-**Prognoza (następna godz.): 24,1 µg/m³**
+#### Prognoza (następna godz.): 24,1 µg/m³
 
 Model AI przewiduje, że za godzinę stężenie PM10 wyniesie 24,1 µg/m³.
 Mała etykieta **↓ -6,9 µg/m³** oznacza, że model spodziewa się *spadku*
 o 6,9 µg/m³ w stosunku do aktualnego pomiaru. To dobra wiadomość —
 powietrze ma być czystsze.
 
-**Prognozowana jakość: Dobra**
+#### Prognozowana jakość: Dobra
 
 Automatyczna ocena jakości dla przewidywanej wartości.
 
@@ -162,7 +162,7 @@ Pionowe linie przerywane to **progi alarmowe**:
 Box plot to kompaktowy sposób pokazania rozkładu danych.
 Czytamy go tak:
 
-```
+```text
      ┌───────┐
 ━━━━━│   │   │━━━━━━━   ←  "wąsy" (zakres bez skrajnych wartości)
      └───────┘
@@ -212,7 +212,7 @@ Kolory pomagają szybko ocenić jakość predykcji:
 
 ### Schemat uproszczony
 
-```
+```text
 Dane wejściowe (cechy):                 Model AI              Wyjście:
 ────────────────────────────          ────────────          ──────────────
   PM10 sprzed 1 godziny       ──►                   ──►   Predykcja PM10
@@ -232,7 +232,7 @@ Dane wejściowe (cechy):                 Model AI              Wyjście:
 **Random Forest** to model składający się z wielu „drzew decyzyjnych".
 Każde drzewo to seria pytań, np.:
 
-```
+```text
 Czy PM10 godzinę temu było > 30?
 ├─ TAK → Czy temperatura < 5°C?
 │        ├─ TAK → Przewiduję PM10 = 38 µg/m³

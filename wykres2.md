@@ -11,7 +11,7 @@ Nie pokazuje KIEDY wartości wystąpiły — tylko jak często i jak duże były
 
 ## Elementy wykresu
 
-```
+```text
 Liczba
 godzin
   │
@@ -27,10 +27,12 @@ godzin
 ```
 
 ### Słupki (bars)
+
 Każdy słupek = jeden przedział stężeń (np. 10–20 µg/m³).
 **Wysokość słupka** = liczba godzin w tym przedziale.
 
 ### Linie przerywane — normy jakości powietrza
+
 | Kolor | Wartość | Norma | Znaczenie |
 | ------- | --------- | ------- | ----------- |
 | Pomarańczowa | 45 µg/m³ | WHO (dobowy) | Zalecenie Światowej Organizacji Zdrowia |
@@ -60,6 +62,7 @@ Na podstawie 1677 godzin danych (ok. 70 dni):
 | powyżej 100 µg/m³ | 0 h | 0,0% | Nie odnotowano w tym okresie |
 
 **Łącznie:**
+
 - Poniżej normy WHO (45 µg/m³): **87,6% godzin** → powietrze jest dopuszczalne przez większość czasu
 - Powyżej normy WHO (45 µg/m³): **12,4% godzin** (208 h) → ok. 1 na 8 godzin
 - Powyżej 75 µg/m³: **0,3% godzin** (5 h) → rzadkie, silne epizody smogowe
@@ -70,7 +73,7 @@ Na podstawie 1677 godzin danych (ok. 70 dni):
 
 ### Kształt tego histogramu — skośny w prawo (right-skewed)
 
-```
+```text
 Liczba
 godzin
 240 │      ██
@@ -92,6 +95,7 @@ godzin
 ```
 
 **Co oznacza ten kształt:**
+
 - **Szczyt (moda)** przy ~15–20 µg/m³ → najczęstszy poziom PM10
 - **Długi ogon w prawo** → rzadkie, ale możliwe epizody z wysokimi wartościami
 - **Gwałtowny spadek** po 45 µg/m³ → większość czasu powietrze jest poniżej normy WHO
@@ -123,7 +127,7 @@ godzin
 
 ## Związek histogramu z box plotem
 
-```
+```text
 Histogram pokazuje:           Box plot pokazuje:
 ┌────────────────────┐        ┌──────────────┐
 │ Jak wygląda cały   │        │ Q1, mediana, │

@@ -35,16 +35,18 @@ SmogGuardAI to program komputerowy, który automatycznie pobiera dane o jakości
 
 Python to język programowania, w którym napisany jest SmogGuardAI.
 
-1. Wejdź na stronę: **https://www.python.org/downloads/**
+1. Wejdź na stronę: **<https://www.python.org/downloads/>**
 2. Kliknij duży żółty przycisk **„Download Python 3.x.x"** (wybierz wersję 3.10 lub nowszą).
 3. Uruchom pobrany instalator.
 4. **WAŻNE**: Zanim klikniesz „Install Now", zaznacz checkbox **„Add Python to PATH"** na dole okna instalatora.
 5. Kliknij „Install Now" i poczekaj na zakończenie instalacji.
 
 **Sprawdzenie instalacji** — otwórz wiersz poleceń (naciśnij `Win+R`, wpisz `cmd`, naciśnij Enter) i wpisz:
-```
+
+```bat
 py --version
 ```
+
 Powinieneś zobaczyć np. `Python 3.11.x`. Jeśli pojawia się błąd, powtórz instalację i upewnij się, że zaznaczyłeś „Add Python to PATH".
 
 ---
@@ -63,7 +65,7 @@ Program pobiera dane z internetu i potrzebuje darmowego klucza dostępu (tokenu 
 
 ### Jak uzyskać klucz API WAQI?
 
-1. Wejdź na: **https://aqicn.org/data-platform/token/**
+1. Wejdź na: **<https://aqicn.org/data-platform/token/>**
 2. Wpisz swój adres e-mail i kliknij „Submit".
 3. Odbierz e-mail i skopiuj otrzymany token (ciąg liter i cyfr).
 
@@ -74,7 +76,7 @@ Program pobiera dane z internetu i potrzebuje darmowego klucza dostępu (tokenu 
 3. Otwórz plik `.env` w Notatniku (kliknij prawym przyciskiem → Otwórz za pomocą → Notatnik).
 4. Zastąp tekst `WKLEJ_TUTAJ_SWOJ_TOKEN` swoim tokenem WAQI:
 
-```
+```env
 WAQI_TOKEN=abc123twój_token_tutaj
 CITY=Slupsk
 OUTPUT_FILE=aqicn_slupsk_data.csv
@@ -82,7 +84,7 @@ IMGW_STATIONS=Slupsk,Koszalin,Chojnice,Ustka,Leba
 TZ=Europe/Warsaw
 ```
 
-5. Zapisz plik (`Ctrl+S`) i zamknij Notatnik.
+1. Zapisz plik (`Ctrl+S`) i zamknij Notatnik.
 
 ---
 
@@ -96,7 +98,7 @@ Pełny potok wykonuje wszystkie 10 kroków: pobieranie danych, scalanie, budowę
 
 Otwórz **Eksplorator plików**, przejdź do folderu `C:\Programy\Powietrze\SmogGuardAI`, a następnie **dwukrotnie kliknij** plik:
 
-```
+```bat
 run_full_pipeline.bat
 ```
 
@@ -106,7 +108,7 @@ Pojawi się czarne okno konsoli — to normalne. Pierwsze uruchomienie może zaj
 
 Wykonuje uproszczone kroki: pobieranie → scalanie → trening → prognozowanie. Przeznaczony do cyklicznego uruchamiania co godzinę.
 
-```
+```bat
 run_hourly.bat
 ```
 
@@ -165,6 +167,7 @@ Wyłączone w bieżącej wersji. Skrypt `predict_pm25.py` istnieje do ręcznego 
 Skrypt `backtest_pm10.py` sprawdza wstecznie, jak dobrze model przewidywał wartości PM10 na danych historycznych. Wynik (plik `outputs/pm10_backtest_YYYYMMDD_HHMMSS.csv`) zawiera kolumny `y_true` (prawdziwe pomiary) i `y_pred` (prognozy modelu).
 
 Osiągane metryki dokładności:
+
 - MAE (średni błąd bezwzględny): **ok. 0.47 µg/m³**
 - RMSE (pierwiastek błędu średniokwadratowego): **ok. 1.26 µg/m³**
 - R² (współczynnik dopasowania, max 1.0): **ok. 0.97**
@@ -176,6 +179,7 @@ Wyłączony w bieżącej wersji.
 ### Krok 10/10 — Scalanie wyników do panelu (`merge_pm10_results`)
 
 Skrypt `merge_pm10_results.py` łączy w jeden plik `outputs/pm10_all_latest.csv`:
+
 - wyniki backtestów (historia porównawcza)
 - prognozy na kolejne 24 godziny
 - prawdziwe pomiary z serwisu WAQI
@@ -192,20 +196,21 @@ Ten plik jest następnie odczytywany przez panel wizualizacji.
 
 Otwórz wiersz poleceń (`Win+R` → `cmd` → Enter), przejdź do folderu projektu i uruchom:
 
-```
+```bat
 cd C:\Programy\Powietrze\SmogGuardAI
 py -m streamlit run src/streamlit_pm10_dashboard.py
 ```
 
 ### Panel rozszerzony (wielozanieczyszczeniowy)
 
-```
+```bat
 cd C:\Programy\Powietrze\SmogGuardAI
 py -m streamlit run app/app_extended_multi.py
 ```
 
 Po chwili w konsoli pojawią się adresy:
-```
+
+```text
 Local URL: http://localhost:8501
 ```
 
@@ -238,6 +243,7 @@ Widoczny gdy dane zawierają kolumnę `error`. Słupki czerwone oznaczają progn
 ### Kafelki stanu powietrza
 
 Cztery kafelki pokazujące na bieżąco:
+
 - **PM10 (ostatni pomiar)** — aktualne stężenie
 - **Jakość powietrza** — słowny opis + ikona koloru (🟢🟡🟠🔴🟣)
 - **Prognoza następna godzina** — wartość + zmiana względem teraz
@@ -283,7 +289,7 @@ Tabela wszystkich wartości z kolorowaniem komórek wg norm:
 
 Uruchom jako administrator — kliknij prawym przyciskiem myszy na plik, wybierz „Uruchom jako administrator":
 
-```
+```bat
 setup_scheduler.bat
 ```
 
@@ -300,7 +306,7 @@ Skrypt automatycznie utworzy zadanie o nazwie `Powietrze_Slupsk_Hourly`, które 
 
 ### Usunięcie zaplanowanego zadania
 
-```
+```bat
 remove_scheduler.bat
 ```
 
@@ -308,7 +314,7 @@ remove_scheduler.bat
 
 ## Struktura folderów projektu
 
-```
+```text
 SmogGuardAI/
  ├─ data/                    ← dane źródłowe i scalone (CSV)
  │   ├─ aqicn_slupsk_data.csv    ← dane WAQI
@@ -337,29 +343,37 @@ SmogGuardAI/
 ## Rozwiązywanie problemów
 
 ### „py nie jest rozpoznawane jako polecenie"
+
 Python nie jest zainstalowany lub nie został dodany do PATH. Zainstaluj Pythona ponownie i upewnij się, że zaznaczyłeś **„Add Python to PATH"** podczas instalacji.
 
 ### „Brak wirtualnego środowiska w .venv"
+
 Pliki `.bat` tworzą środowisko automatycznie. Jeśli błąd się powtarza, otwórz wiersz poleceń w folderze projektu i wpisz:
-```
+
+```bat
 py -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 ### „ModuleNotFoundError: No module named 'plotly'"
+
 Biblioteka Plotly nie jest zainstalowana. Uruchom:
-```
+
+```bat
 py -m pip install plotly
 ```
 
 ### Panel nie otwiera się w przeglądarce
+
 Upewnij się, że wpisałeś poprawnie adres `http://localhost:8501` w pasku adresu przeglądarki (nie w pasku wyszukiwania).
 
 ### „WAQI token error" lub brak danych
+
 Sprawdź plik `.env` — token WAQI musi być wpisany bez cudzysłowów i spacji.
 
 ### Jak sprawdzić czy wszystko działa poprawnie?
+
 Sprawdź logi w folderze `logs/` — każdy krok potoku zapisuje tam swój raport. Jeśli krok zakończył się błędem, w konsoli pojawi się `[WARN]`.
 
 ---
@@ -376,12 +390,12 @@ Sprawdź logi w folderze `logs/` — każdy krok potoku zapisuje tam swój rapor
 | R² | ~0.97 |
 | Minimalna liczba wierszy do treningu | 72 godziny (3 doby) |
 
-
 ## Szybki start — podsumowanie
 
 Będąc w folderze projektu (`C:\Programy\Powietrze\SmogGuardAI`), uruchamiamy w kolejności:
 
 **1. Pełny potok danych** (pobieranie, trening, prognoza):
+
 ```powershell
 .\run_full_pipeline.bat
 ```
@@ -389,11 +403,15 @@ Będąc w folderze projektu (`C:\Programy\Powietrze\SmogGuardAI`), uruchamiamy w
 > W PowerShell **zawsze** trzeba dodać `.\` przed nazwą pliku `.bat` — inaczej PowerShell nie wie, że chodzi o plik w bieżącym folderze.
 
 **2. Panel wizualizacji PM10** (po zakończeniu potoku):
+
 ```powershell
 py -m streamlit run src/streamlit_pm10_dashboard.py
 ```
-widok ogólny: 
 
-py -m streamlit run app/app_extended_multi.py      
+widok ogólny:
 
-Następnie otwórz przeglądarkę i wejdź na: **http://localhost:8501**
+```powershell
+py -m streamlit run app/app_extended_multi.py
+```
+
+Następnie otwórz przeglądarkę i wejdź na: **<http://localhost:8501>**
