@@ -33,6 +33,26 @@ try:
 except Exception:
     pass
 
+from utils_features import resolve_best_target_alias
+
+
+def pred_col_name(target_col: str) -> str:
+    """Nazwa kolumny wynikowej zgodna z targetem: 'PM10' -> 'pm10_pred', 'PM2.5' -> 'pm25_pred'.
+    Musi być spójna z tym, czego oczekuje merge_pm10_results.py (--pollutant pm10|pm25) —
+    inaczej scalanie po cichu dostaje same NaN (kolumna 'pm25_pred' nie istnieje, bo
+    predykcja zawsze nazywała się 'pm10_pred', nawet dla PM2.5)."""
+    base = target_col.lower().replace(".", "").replace("_", "")
+    return f"{base}_pred"
+
+
+def target_col_of(model) -> str | None:
+    """Nazwa kolumny celu zapisana w wytrenowanym pipeline (np. 'PM10' albo 'PM2.5')."""
+    fb = getattr(model, "named_steps", {}).get("features") if hasattr(model, "named_steps") else None
+    if fb is not None and hasattr(fb, "config"):
+        return fb.config.target_col
+    return None
+
+
 ALIASES_TIME = ["timestamp", "time", "date", "datetime", "DateTime"]
 
 # Mapowanie kolumn w merged_hourly → nazwy Open-Meteo
@@ -54,12 +74,17 @@ def fetch_weather_forecast(horizon: int, lat: float = 54.463, lon: float = 17.04
     """Pobiera prognozę pogody z Open-Meteo na najbliższe `horizon` godzin (bez API key)."""
     if not _HAS_REQUESTS:
         return pd.DataFrame()
+    # Open-Meteo zwraca forecast_days pełnych dni kalendarzowych liczonych od
+    # północy (nie od "teraz") — przy horyzoncie 72h i popołudniowym uruchomieniu
+    # 3 dni by nie starczyły do pokrycia całych 72h od bieżącej godziny, dlatego
+    # bierzemy zapas +1 dzień ponad to, co wynika z samego horyzontu.
+    forecast_days = min(16, max(3, (horizon // 24) + 2))
     url = (
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
         f"&hourly=temperature_2m,relative_humidity_2m,surface_pressure,"
         f"wind_speed_10m,wind_gusts_10m"
-        f"&forecast_days=3&timezone=Europe/Warsaw&wind_speed_unit=ms"
+        f"&forecast_days={forecast_days}&timezone=Europe/Warsaw&wind_speed_unit=ms"
     )
     try:
         r = _requests.get(url, timeout=15)
@@ -95,6 +120,7 @@ def iterative_future_predict(pipe, df_hist: pd.DataFrame, time_col: str,
     fb = pipe.named_steps["features"]
     final_est = pipe.named_steps["model"]
     target_col = fb.config.target_col
+    out_col = pred_col_name(target_col)
     expected_features = list(getattr(final_est, "feature_names_in_",
                                      fb.get_feature_names_out()))
 
@@ -123,7 +149,11 @@ def iterative_future_predict(pipe, df_hist: pd.DataFrame, time_col: str,
                 ema = alpha * ema + (1 - alpha) * p
             smoothed = round(ema, 2)
             new_row[target_col] = smoothed
-            for alias in ("PM10_x", "PM10_y", "pm10_mean", "aqi"):
+            # Aliasy tego samego zanieczyszczenia (PM10_x/PM10_y/pm10_mean albo
+            # PM2.5_x/PM2.5_y/pm25_mean) też trzeba zaktualizować, inaczej kolejny
+            # krok policzy lag na bazie nieaktualnej/skrośnej kolumny.
+            alias_base = target_col.lower().replace(".", "").replace("_", "")
+            for alias in (f"{target_col}_x", f"{target_col}_y", f"{alias_base}_mean"):
                 if alias in new_row.index:
                     new_row[alias] = smoothed
 
@@ -152,9 +182,9 @@ def iterative_future_predict(pipe, df_hist: pd.DataFrame, time_col: str,
         predictions.append(pred)
 
         if verbose and i < 3:
-            print(f"  h+{i+1} ({next_ts}): PM10_pred={pred:.1f}")
+            print(f"  h+{i+1} ({next_ts}): {out_col}={pred:.1f}")
 
-    return pd.DataFrame({"timestamp": future_timestamps, "pm10_pred": predictions})
+    return pd.DataFrame({"timestamp": future_timestamps, out_col: predictions})
 
 def build_parser():
     ap = argparse.ArgumentParser(description="Predykcja PM10 (24h) z wyrównaniem do WAQI.")
@@ -263,24 +293,26 @@ def main():
     df = normalize_timestamp(df, args.time_col)
     df = df.drop_duplicates(subset=[args.time_col]).sort_values(args.time_col)
 
-    # Jeżeli plik wejściowy pochodzi z merge_hourly, kolumna PM10 może mieć mniej danych
-    # niż PM10_x (po złączeniu z IMGW/innymi źródłami pandas dodaje sufiks _x/_y).
-    # Upewnij się, że PM10 jest wypełnione z najlepszego dostępnego aliasu.
-    current_pm10_count = df["PM10"].notna().sum() if "PM10" in df.columns else 0
-    for alias in ["PM10_x", "PM10_y"]:
-        if alias in df.columns:
-            alias_count = pd.to_numeric(df[alias], errors="coerce").notna().sum()
-            if alias_count > current_pm10_count:
-                df["PM10"] = pd.to_numeric(df[alias], errors="coerce")
-                current_pm10_count = alias_count
-
-    if not args.predict_all and "pm10_true" in df.columns:
-        df_hist_future = df[df["pm10_true"].isna()].copy()
-    else:
-        df_hist_future = df.copy()
-
     last_meas_ts = get_last_meas_ts(args.align_to, args.time_col)
     model = joblib.load(mpath)
+
+    # Jeżeli plik wejściowy pochodzi z merge_hourly, kolumna celu (PM10, PM2.5, ...)
+    # może mieć mniej danych niż jej alias (po złączeniu z IMGW/innymi źródłami
+    # pandas dodaje sufiks _x/_y, albo dane leżą w 'pm10_mean'/'pm25_mean').
+    # Ustal nazwę celu z wytrenowanego modelu (działa dla dowolnego zanieczyszczenia)
+    # i uzupełnij ją z najlepszego dostępnego aliasu — patrz utils_features.py.
+    model_target = target_col_of(model)
+    if model_target and model_target in df.columns:
+        best_alias, best_count = resolve_best_target_alias(df, model_target)
+        if best_alias is not None:
+            df[model_target] = pd.to_numeric(df[best_alias], errors="coerce")
+
+    out_col = pred_col_name(model_target) if model_target else "pm10_pred"
+    true_col = f"{model_target.lower().replace('.', '').replace('_', '')}_true" if model_target else "pm10_true"
+    if not args.predict_all and true_col in df.columns:
+        df_hist_future = df[df[true_col].isna()].copy()
+    else:
+        df_hist_future = df.copy()
 
     # ── Predykcja historyczna (wiersze bez pm10_true) ────────────────────────
     if hasattr(model, "named_steps"):
@@ -308,7 +340,7 @@ def main():
 
     hist_pred_df = pd.DataFrame({
         "timestamp": df_hist_future[args.time_col].values,
-        "pm10_pred": yhat_hist.astype(float),
+        out_col: yhat_hist.astype(float),
     })
 
     # ── Iteracyjna predykcja przyszłości z prognozą pogody ───────────────────
@@ -335,7 +367,7 @@ def main():
             X_f = df_future[feat_cols].copy().apply(pd.to_numeric, errors="coerce").fillna(0.0)
             future_pred_df = pd.DataFrame({
                 "timestamp": df_future[args.time_col].values,
-                "pm10_pred": model.predict(X_f).astype(float),
+                out_col: model.predict(X_f).astype(float),
             })
 
         out_df = pd.concat([hist_pred_df, future_pred_df], ignore_index=True).sort_values("timestamp")

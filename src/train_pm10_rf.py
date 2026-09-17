@@ -34,6 +34,7 @@ from typing import List, Optional, Tuple
 import joblib
 import numpy as np
 import pandas as pd
+from utils_features import resolve_best_target_alias
 from pandas.api.types import CategoricalDtype  # dla isinstance(..., CategoricalDtype)
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.ensemble import RandomForestRegressor
@@ -64,6 +65,7 @@ class ExtendedFeatureBuilder(BaseEstimator, TransformerMixin):
         self._feature_names: List[str] = []
         self._base_numeric_cols: List[str] = []
         self._low_card_cat_cols: List[str] = []
+        self._dummy_cols_: List[str] = []
 
     def _infer_columns(self, df: pd.DataFrame) -> None:
         drop_cols = {self.config.time_col, self.config.target_col}
@@ -149,6 +151,14 @@ class ExtendedFeatureBuilder(BaseEstimator, TransformerMixin):
                     "humidity" in a or "wilgotnosc" in a or "rh" in a):
                     feat_names.append(f"{a}_sq")
 
+        # Zapamiętaj dokładny zestaw kolumn one-hot z danych treningowych, żeby
+        # transform() na innym wycinku (np. inne kategorie "stacja" w danym
+        # oknie backtestu) zawsze zwracał te same kolumny co przy fit().
+        if self._low_card_cat_cols:
+            dummies = pd.get_dummies(X[self._low_card_cat_cols], dummy_na=False, drop_first=True)
+            self._dummy_cols_ = list(dummies.columns)
+            feat_names += self._dummy_cols_
+
         self._feature_names = feat_names
         return self
 
@@ -172,9 +182,16 @@ class ExtendedFeatureBuilder(BaseEstimator, TransformerMixin):
         # Numeryczne surowe
         if self._base_numeric_cols:
             feats = feats.join(df[self._base_numeric_cols])
-        # One-hot nisko-kardynalnych
+        # One-hot nisko-kardynalnych — zrównane do kolumn zapamiętanych przy fit(),
+        # żeby kategorie nieobecne w tym wycinku dały 0, a nieznane nowe kategorie
+        # zostały odrzucone (bez ValueError o niedopasowanych feature names).
         if self._low_card_cat_cols:
             dummies = pd.get_dummies(df[self._low_card_cat_cols], dummy_na=False, drop_first=True)
+            # Zawsze zrównuj do kolumn zapamiętanych przy fit() — również gdy
+            # fit() nie zobaczył żadnej kategorii poza pierwszą (pusta lista),
+            # inaczej transform() na wycinku z większą liczbą kategorii
+            # wygeneruje kolumny nieznane modelowi przy predict().
+            dummies = dummies.reindex(columns=self._dummy_cols_, fill_value=False)
             feats = feats.join(dummies)
         # Lagi/rolling celu
         if (self.config.lags or self.config.rolling_windows) and (self.config.target_col in df.columns):
@@ -255,6 +272,7 @@ def train(
     test_size: float = 0.2,
     n_estimators: int = 500,
     max_depth: Optional[int] = None,
+    min_samples_leaf: int = 10,
     n_jobs: int = -1,
     random_state: int = 42,
     include_interactions: bool = True,
@@ -299,27 +317,25 @@ def train(
         print(f"[INFO] Użyję kolumny celu: '{resolved_target}' (dopasowanie do '{target}')")
     target = resolved_target
 
-    # Jeśli wykryta kolumna celu ma zbyt mało danych, użyj lepszego aliasu.
-    # Warunek: całkowicie pusta LUB ma mniej niż 10 wartości (np. tylko syngeos).
+    # Jeśli inny alias tego samego zanieczyszczenia (np. PM10_x/PM10_y/pm10_mean,
+    # albo PM2.5_x/PM2.5_y/pm25_mean) ma WIĘCEJ realnych wartości niż wykryta
+    # kolumna celu, użyj go zamiast. Działa identycznie dla PM10, PM2.5 i innych —
+    # patrz `resolve_best_target_alias` w utils_features.py. Poprzedni warunek
+    # ("< 10 wierszy") był błędny: po merge_hourly.py kolumna celu potrafi mieć
+    # np. tylko 14 wypełnionych wierszy (>= starego progu 10!), a prawdziwe dane
+    # (tysiące wierszy) leżą w aliasie — model trenował się wtedy praktycznie na
+    # kilkunastu punktach, dając bezwartościowy, mocno obciążony model bez
+    # żadnego ostrzeżenia w logach.
     MIN_TARGET_ROWS = 10
-    if df[target].notna().sum() < MIN_TARGET_ROWS:
-        alt_candidates = [c for c in df.columns if 'pm10' in c.lower() and c != target]
-        # posortuj kandydatów malejąco wg liczby nie-NaN wartości
-        alt_candidates.sort(key=lambda c: df[c].notna().sum(), reverse=True)
-        chosen = None
-        for c in alt_candidates:
-            if df[c].notna().sum() >= MIN_TARGET_ROWS:
-                df[target] = pd.to_numeric(df[c], errors="coerce")
-                chosen = c
-                print(f"[WARN] Kolumna celu '{target}' ma za mało danych ({df[target].notna().sum()} wierszy) — używam: {c} ({df[target].notna().sum()} wierszy).")
-                break
-        # dodatkowy fallback: użyj agregatu pm10_mean jeśli występuje
-        if chosen is None and 'pm10_mean' in df.columns and df['pm10_mean'].notna().sum() >= MIN_TARGET_ROWS:
-            df[target] = pd.to_numeric(df['pm10_mean'], errors="coerce")
-            chosen = 'pm10_mean'
-            print(f"[WARN] Kolumna celu '{target}' ma za mało danych — używam 'pm10_mean' jako fallback.")
-        if chosen is None:
-            print(f"[WARN] Kolumna celu '{target}' zawiera tylko NaN lub za mało danych. Spróbuj podać właściwy plik CSV lub upewnij się, że wiersze z PM10 istnieją.")
+    current_count = df[target].notna().sum()
+    best_alias, best_count = resolve_best_target_alias(df, target, min_rows=MIN_TARGET_ROWS)
+    if best_alias is not None:
+        print(f"[WARN] Kolumna celu '{target}' ma {current_count} wierszy — "
+              f"'{best_alias}' ma więcej ({best_count}). Używam '{best_alias}' jako źródła celu.")
+        df[target] = pd.to_numeric(df[best_alias], errors="coerce")
+    elif current_count < MIN_TARGET_ROWS:
+        print(f"[WARN] Kolumna celu '{target}' zawiera tylko NaN lub za mało danych ({current_count} wierszy), "
+              f"a żaden alias nie ma więcej. Sprawdź plik CSV.")
 
     # Usunięcie kolumn które SĄ celem lub jego bezpośrednim proxy (data leakage)
     # np. po merge: PM10_x, PM10_y, aqi, pm10_mean, pm25_mean — model nauczyłby się
@@ -347,6 +363,17 @@ def train(
         print(f"[WARN] Odrzucam {outliers} wierszy z {target} > {PM10_MAX_PHYSICAL} (artefakty merge).")
         df = df[df[target] <= PM10_MAX_PHYSICAL]
 
+    # Za mało realnych pomiarów, żeby cokolwiek sensownego wytrenować — z lagami
+    # do 24h i tak rozrzuconą garstką punktów model dostałby same NaN w cechach
+    # (albo RandomForest rzuciłby błąd na braki danych). Zamiast trenować
+    # bezwartościowy/rozbity model, kończymy czytelnym ostrzeżeniem — dokładnie
+    # tak samo dla PM10, PM2.5 czy każdego kolejnego zanieczyszczenia.
+    MIN_ROWS_TO_TRAIN = 72
+    if len(df) < MIN_ROWS_TO_TRAIN:
+        print(f"[WARN] Tylko {len(df)} realnych pomiarów '{target}' (wymagane >= {MIN_ROWS_TO_TRAIN}). "
+              f"Pomijam trening — poczekaj, aż zbierze się więcej danych (np. po naprawie harmonogramu).")
+        return
+
     # Podział czasowy
     train_df, valid_df = chronological_split(df, time_col=time_col, test_size=test_size)
 
@@ -364,6 +391,7 @@ def train(
     rf = RandomForestRegressor(
         n_estimators=n_estimators,
         max_depth=max_depth,
+        min_samples_leaf=min_samples_leaf,
         random_state=random_state,
         n_jobs=n_jobs,
         oob_score=False,
@@ -416,18 +444,26 @@ def train(
             txt = export_text(est, max_depth=print_tree_depth)
         print(f"\n--- Drzewo #{i} (max_depth={print_tree_depth}) ---\n{txt}")
 
-    # Zapis pipeline i raportów
+    # Zapis pipeline i raportów. compress=6: bezstratna kompresja joblib —
+    # ten sam model, ~5x mniejszy plik na dysku (drzewa RF mają dużo powtarzalnej
+    # struktury, więc gzip radzi sobie z nimi bardzo dobrze). Razem z
+    # min_samples_leaf (patrz wyżej) plik spada z ~130 MB do pojedynczych MB,
+    # bez pogorszenia (a przy tym ustawieniu nawet z poprawą) dokładności walidacyjnej.
     os.makedirs(os.path.dirname(model_out), exist_ok=True)
-    joblib.dump(pipe, model_out)
+    joblib.dump(pipe, model_out, compress=6)
     try:
         print(f"\n✅ Zapisano pipeline do: {model_out}")
     except UnicodeEncodeError:
         print(f"\n[OK] Zapisano pipeline do: {model_out}")
 
     if save_reports:
-        imp_path = os.path.join(os.path.dirname(model_out), "pm10_feature_importances.csv")
+        # Nazwa raportów po modelu (np. 'pm10_pipeline.pkl' -> 'pm10_'), nie na sztywno
+        # 'pm10_' — inaczej trening PM2.5 nadpisywałby raporty PM10 (ten sam plik).
+        model_stem = os.path.splitext(os.path.basename(model_out))[0]
+        report_prefix = model_stem.replace("_pipeline", "")
+        imp_path = os.path.join(os.path.dirname(model_out), f"{report_prefix}_feature_importances.csv")
         imp_df.to_csv(imp_path, index=False)
-        trees_txt_path = os.path.join(os.path.dirname(model_out), "pm10_trees.txt")
+        trees_txt_path = os.path.join(os.path.dirname(model_out), f"{report_prefix}_trees.txt")
         with open(trees_txt_path, "w", encoding="utf-8") as f:
             for i in range(trees_to_show):
                 est = pipe.named_steps["model"].estimators_[i]
@@ -460,6 +496,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--test-size", type=float, default=0.2, help="Udział zbioru walidacyjnego (chronologicznie)")
     p.add_argument("--n-estimators", type=int, default=500, help="Liczba drzew w lesie")
     p.add_argument("--max-depth", type=int, default=None, help="Maksymalna głębokość drzew (None=bez limitu)")
+    p.add_argument("--min-samples-leaf", type=int, default=10,
+                   help="Minimalna liczba próbek w liściu drzewa (domyślnie 10). Wyższa wartość "
+                        "= mniejszy plik modelu i mniejsze ryzyko dopasowania do szumu pojedynczych "
+                        "próbek; empirycznie (patrz README) 10 dawało najlepszy MAE/R^2 na danych PM10.")
     p.add_argument("--n-jobs", type=int, default=-1, help="Równoległość w RandomForest (-1 = wszystkie rdzenie)")
     p.add_argument("--random-state", type=int, default=42, help="Ziarno losowe")
     p.add_argument("--no-interactions", action="store_true", help="Wyłącz proste interakcje meteo")
@@ -483,6 +523,7 @@ def main():
         test_size=args.test_size,
         n_estimators=args.n_estimators,
         max_depth=args.max_depth,
+        min_samples_leaf=args.min_samples_leaf,
         n_jobs=args.n_jobs,
         random_state=args.random_state,
         include_interactions=not args.no_interactions,

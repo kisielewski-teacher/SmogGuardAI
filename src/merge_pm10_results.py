@@ -89,6 +89,10 @@ def build_parser():
     ap.add_argument("--out", required=True, help="Ścieżka wyjściowa CSV.")
     ap.add_argument("--sep", default=None, help="Separator CSV (auto jeśli brak).")
     ap.add_argument("--encoding", default="utf-8", help="Kodowanie CSV (domyślnie utf-8).")
+    ap.add_argument("--pollutant", default="pm10", choices=["pm10", "pm25"],
+                     help="Które zanieczyszczenie scalamy — steruje nazwami kolumn "
+                          "(pm10_true/pm10_pred/pm10_hist albo pm25_true/pm25_pred/pm25_hist). "
+                          "Reszta logiki (scalanie pomiaru+prognozy+pogody, interpolacja) jest identyczna.")
     return ap
 
 # --------- MAIN ----------
@@ -98,6 +102,12 @@ def main():
     pred_path = Path(args.prediction)
     weather_path = Path(args.weather)
     out_path = Path(args.out)
+
+    pol = args.pollutant  # "pm10" albo "pm25"
+    col_true, col_pred, col_hist = f"{pol}_true", f"{pol}_pred", f"{pol}_hist"
+    # WAQI dla Słupska raportuje tylko PM10 — fallback z pliku pogodowego ma sens
+    # wyłącznie dla PM10, dla PM2.5 nie ma czym uzupełniać.
+    use_waqi_fallback = (pol == "pm10")
 
     if not back_path.exists():
         raise FileNotFoundError(f"Brak pliku pomiarów: {back_path}")
@@ -112,39 +122,26 @@ def main():
     df_true = df_true.dropna(subset=["timestamp"]).drop_duplicates(subset=["timestamp"]).sort_values("timestamp")
     df_true = unify_time(df_true, "timestamp")
     # Obsługa formatu backtest CSV (y_true/y_pred) generowanego przez backtest_pm10.py
-    if "pm10" not in df_true.columns and "y_true" in df_true.columns:
-        df_true["pm10"] = pd.to_numeric(df_true["y_true"], errors="coerce")
-    df_true["pm10_true"] = pd.to_numeric(df_true.get("pm10", np.nan), errors="coerce")
-    # PM2.5 tymczasowo ukryte — tylko PM10
-    # df_true["pm25_true"] = pd.to_numeric(df_true.get("pm25", np.nan), errors="coerce")
+    if pol not in df_true.columns and "y_true" in df_true.columns:
+        df_true[pol] = pd.to_numeric(df_true["y_true"], errors="coerce")
+    df_true[col_true] = pd.to_numeric(df_true.get(pol, np.nan), errors="coerce")
 
     # --- 2) Predykcja ---
     df_pred = read_csv_robust(pred_path, sep=args.sep, encoding=args.encoding)
     df_pred = normalize(df_pred)
     df_pred = df_pred.dropna(subset=["timestamp"]).drop_duplicates(subset=["timestamp"]).sort_values("timestamp")
     df_pred = unify_time(df_pred, "timestamp")
-    df_pred["pm10_pred"] = pd.to_numeric(df_pred.get("pm10_pred", np.nan), errors="coerce")
+    df_pred[col_pred] = pd.to_numeric(df_pred.get(col_pred, np.nan), errors="coerce")
     # Jeśli backtest CSV zawiera historyczne predykcje (y_pred), uzupełnij df_pred
     if "y_pred" in df_true.columns:
         bt_as_pred = df_true[["timestamp"]].copy()
-        bt_as_pred["pm10_pred"] = pd.to_numeric(df_true["y_pred"], errors="coerce")
+        bt_as_pred[col_pred] = pd.to_numeric(df_true["y_pred"], errors="coerce")
         # Połącz: priorytet df_pred (nowe predykcje przyszłości), uzupełnienie z backtestu
         df_pred = (
             pd.concat([bt_as_pred, df_pred])
             .drop_duplicates(subset=["timestamp"], keep="last")
             .sort_values("timestamp")
         )
-
-    # PM2.5 tymczasowo ukryte — forecast_pm25.csv pomijany
-    # pm25_forecast_path = Path("data") / "forecast_pm25.csv"
-    df_pred_pm25 = None
-    # if pm25_forecast_path.exists():
-    #     df_pred_pm25 = read_csv_robust(pm25_forecast_path, sep=args.sep, encoding=args.encoding)
-    #     df_pred_pm25 = normalize(df_pred_pm25)
-    #     df_pred_pm25 = df_pred_pm25.dropna(subset=["timestamp"]).drop_duplicates(subset=["timestamp"]).sort_values("timestamp")
-    #     df_pred_pm25 = unify_time(df_pred_pm25, "timestamp")
-    #     df_pred_pm25["pm25_pred"] = pd.to_numeric(df_pred_pm25.get("pm25_pred", np.nan), errors="coerce")
-
 
     # --- 3) Pogoda ---
     df_weather = read_csv_robust(weather_path, sep=args.sep, encoding=args.encoding)
@@ -153,38 +150,39 @@ def main():
     df_weather = unify_time(df_weather, "timestamp")
     df_weather = to_numeric_cols(df_weather, ["temp", "rh", "pressure", "wind"])
 
-    # Wyodrębnij PM10 z pliku pogodowego (WAQI) — uzupełni pm10_true tam, gdzie brakuje
-    waqi_pm10 = None
-    if "pm10" in df_weather.columns and df_weather["pm10"].notna().any():
-        waqi_pm10 = df_weather[["timestamp", "pm10"]].copy()
-        waqi_pm10 = waqi_pm10[waqi_pm10["pm10"].notna()]
+    # Wyodrębnij pomiar z pliku pogodowego (WAQI) — uzupełni *_true tam, gdzie brakuje
+    # (tylko dla PM10 — patrz use_waqi_fallback powyżej)
+    waqi_fallback = None
+    if use_waqi_fallback and "pm10" in df_weather.columns and df_weather["pm10"].notna().any():
+        waqi_fallback = df_weather[["timestamp", "pm10"]].copy()
+        waqi_fallback = waqi_fallback[waqi_fallback["pm10"].notna()]
 
     # Ogranicz weather do samych kolumn pogodowych,
-    # aby nie nadpisać pm10_* podczas łączenia:
+    # aby nie nadpisać *_true/*_pred podczas łączenia:
     weather_cols = ["timestamp"] + [c for c in ["temp", "rh", "pressure", "wind"] if c in df_weather.columns]
     df_weather = df_weather[weather_cols]
 
     # --- MERGE: pomiar + predykcja (nearest, tolerance=1h) ---
     merged_hist = pd.merge_asof(
-        df_true[["timestamp", "pm10_true"]].sort_values("timestamp"),
-        df_pred[["timestamp", "pm10_pred"]].sort_values("timestamp"),
+        df_true[["timestamp", col_true]].sort_values("timestamp"),
+        df_pred[["timestamp", col_pred]].sort_values("timestamp"),
         on="timestamp",
         direction="nearest",
         tolerance=pd.Timedelta("1h"),
     )
-    # pm10_hist (prognoza na punktach historii)
-    merged_hist["pm10_hist"] = merged_hist["pm10_pred"]
-    merged_hist["error"] = merged_hist["pm10_hist"] - merged_hist["pm10_true"]
+    # *_hist (prognoza na punktach historii)
+    merged_hist[col_hist] = merged_hist[col_pred]
+    merged_hist["error"] = merged_hist[col_hist] - merged_hist[col_true]
 
     # --- Przyszłość: wszystko po last_true ---
-    if merged_hist["pm10_true"].notna().any():
-        last_true_ts = merged_hist["timestamp"][merged_hist["pm10_true"].notna()].max()
+    if merged_hist[col_true].notna().any():
+        last_true_ts = merged_hist["timestamp"][merged_hist[col_true].notna()].max()
     else:
         last_true_ts = merged_hist["timestamp"].min()
 
-    future_sel = df_pred[df_pred["timestamp"] > last_true_ts][["timestamp", "pm10_pred"]].copy()
-    future_sel["pm10_true"] = np.nan
-    future_sel["pm10_hist"] = future_sel["pm10_pred"] if args.coalesce_hist else np.nan
+    future_sel = df_pred[df_pred["timestamp"] > last_true_ts][["timestamp", col_pred]].copy()
+    future_sel[col_true] = np.nan
+    future_sel[col_hist] = future_sel[col_pred] if args.coalesce_hist else np.nan
     future_sel["error"] = np.nan
 
     df_pm = pd.concat([merged_hist, future_sel], ignore_index=True)\
@@ -199,27 +197,21 @@ def main():
         tolerance=pd.Timedelta("1h"),
     )
 
-    # PM2.5 tymczasowo ukryte — scalanie prognozy i backtestów PM2.5 pominięte
-    # if df_pred_pm25 is not None and not df_pred_pm25.empty:
-    #     df_final = pd.merge_asof(df_final..., df_pred_pm25..., ...)
-    # if 'pm25_true' in df_true.columns and df_true['pm25_true'].notna().any():
-    #     ...
-
-    # --- Uzupełnij pm10_true danymi WAQI (jeśli mamy je z pliku pogodowego) ---
-    if waqi_pm10 is not None and not waqi_pm10.empty:
+    # --- Uzupełnij *_true danymi WAQI (tylko PM10, jeśli mamy je z pliku pogodowego) ---
+    if waqi_fallback is not None and not waqi_fallback.empty:
         df_final = pd.merge_asof(
             df_final.sort_values("timestamp"),
-            waqi_pm10.rename(columns={"pm10": "pm10_waqi"}).sort_values("timestamp"),
+            waqi_fallback.rename(columns={"pm10": "_waqi_fallback"}).sort_values("timestamp"),
             on="timestamp",
             direction="nearest",
             tolerance=pd.Timedelta("1h"),
         )
-        # Tam gdzie pm10_true jest NaN, wstaw WAQI pm10
-        mask = df_final["pm10_true"].isna() & df_final["pm10_waqi"].notna()
-        df_final.loc[mask, "pm10_true"] = df_final.loc[mask, "pm10_waqi"]
-        df_final = df_final.drop(columns=["pm10_waqi"])
+        # Tam gdzie *_true jest NaN, wstaw wartość z WAQI
+        mask = df_final[col_true].isna() & df_final["_waqi_fallback"].notna()
+        df_final.loc[mask, col_true] = df_final.loc[mask, "_waqi_fallback"]
+        df_final = df_final.drop(columns=["_waqi_fallback"])
         # Przelicz błąd ze zaktualizowanymi pomiarami
-        df_final["error"] = df_final["pm10_hist"] - df_final["pm10_true"]
+        df_final["error"] = df_final[col_hist] - df_final[col_true]
 
     # --- Resample do pełnej siatki godzinowej i interpolacja luk ---
     if not df_final.empty:
@@ -233,14 +225,14 @@ def main():
             .reindex(full_idx)
         )
         df_final.index.name = "timestamp"
-        # Pomiary (pm10_true): interpolacja liniowa (max 6h ciągłej przerwy)
-        df_final["pm10_true"] = df_final["pm10_true"].interpolate(method="linear", limit=6)
+        # Pomiary (*_true): interpolacja liniowa (max 6h ciągłej przerwy)
+        df_final[col_true] = df_final[col_true].interpolate(method="linear", limit=6)
         # Predykcja i historia: pełna interpolacja liniowa (model daje ciągłe wyjście)
-        for col in ["pm10_pred", "pm10_hist"]:
+        for col in [col_pred, col_hist]:
             if col in df_final.columns:
                 df_final[col] = df_final[col].interpolate(method="linear", limit=None)
         # Przelicz błąd po interpolacji
-        df_final["error"] = df_final["pm10_hist"] - df_final["pm10_true"]
+        df_final["error"] = df_final[col_hist] - df_final[col_true]
         # Pogoda: interpolacja (max 6h)
         for col in ["temp", "rh", "pressure", "wind"]:
             if col in df_final.columns:
@@ -252,10 +244,10 @@ def main():
     df_final.to_csv(out_path, index=False)
 
     # --- Raport do konsoli ---
-    print(f"[OK] Zapisano plik łączony z pogodą: {out_path} (wierszy: {len(df_final)})")
+    print(f"[OK] Zapisano plik łączony z pogodą ({pol}): {out_path} (wierszy: {len(df_final)})")
     print(f"[INFO] Kolumny: {list(df_final.columns)}")
-    if df_final["pm10_pred"].notna().any():
-        first_future = df_final["timestamp"][df_final["pm10_true"].isna()].min()
+    if df_final[col_pred].notna().any():
+        first_future = df_final["timestamp"][df_final[col_true].isna()].min()
         print(f"[INFO] Pierwsza prognoza (bez pomiaru) od: {first_future}")
 
 if __name__ == "__main__":

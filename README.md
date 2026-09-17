@@ -2,7 +2,7 @@
 
 ## Czym jest SmogGuardAI?
 
-SmogGuardAI to program komputerowy, który automatycznie pobiera dane o jakości powietrza i pogodzie, uczy się na podstawie historii pomiarów, a następnie przewiduje stężenia zanieczyszczeń (PM10) na najbliższe 24 godziny. Wyniki wyświetlane są w czytelnym **panelu wizualizacji** dostępnym w przeglądarce internetowej.
+SmogGuardAI to program komputerowy, który automatycznie pobiera **rzeczywiste, zweryfikowane** dane o jakości powietrza (GIOŚ, WAQI) i pogodzie (IMGW, Open-Meteo), uczy się na podstawie historii pomiarów, a następnie przewiduje stężenia zanieczyszczeń (PM10) na najbliższe **72 godziny**. Wyniki wyświetlane są w czytelnym **panelu wizualizacji** dostępnym w przeglądarce internetowej, wraz z jawnym wskaźnikiem dokładności prognozy w funkcji horyzontu czasowego.
 
 ---
 
@@ -92,9 +92,12 @@ TZ=Europe/Warsaw
 
 Masz dwie opcje uruchomienia:
 
-### Opcja A — Pełny potok danych (zalecane przy pierwszym uruchomieniu)
+### Opcja A — Cały projekt jednym plikiem (zalecane przy pierwszym uruchomieniu)
 
-Pełny potok wykonuje wszystkie 10 kroków: pobieranie danych, scalanie, budowę cech, trening modelu AI, prognozowanie, backtest i przygotowanie wyników dla panelu wizualizacji.
+Ten jeden plik uruchamia **cały projekt od początku do końca**: pobieranie
+danych, scalanie, budowę cech, trening modelu AI, prognozowanie, backtest,
+przygotowanie wyników — a na końcu **sam otwiera panel wizualizacji**
+w przeglądarce. Nie trzeba nic więcej klikać.
 
 Otwórz **Eksplorator plików**, przejdź do folderu `C:\Programy\Powietrze\SmogGuardAI`, a następnie **dwukrotnie kliknij** plik:
 
@@ -102,21 +105,31 @@ Otwórz **Eksplorator plików**, przejdź do folderu `C:\Programy\Powietrze\Smog
 run_full_pipeline.bat
 ```
 
-Pojawi się czarne okno konsoli — to normalne. Pierwsze uruchomienie może zająć kilka minut, bo program pobiera i instaluje potrzebne biblioteki.
+Pojawi się czarne okno konsoli — to normalne. Pierwsze uruchomienie może
+zająć kilka minut, bo program pobiera i instaluje potrzebne biblioteki
+oraz trenuje model. Gdy potok danych się zakończy, w tym samym oknie
+automatycznie wystartuje panel (Streamlit) i otworzy się przeglądarka
+pod adresem `http://localhost:8501`. Żeby zamknąć panel, wróć do tego
+czarnego okna i naciśnij `Ctrl+C`.
 
-### Opcja B — Szybki potok godzinowy (do automatyzacji)
+### Opcja B — Potok do automatyzacji (bez otwierania panelu)
 
-Wykonuje uproszczone kroki: pobieranie → scalanie → trening → prognozowanie. Przeznaczony do cyklicznego uruchamiania co godzinę.
+Wykonuje te same kroki co Opcja A (pobieranie → scalanie → trening → prognoza 72h → backtest → scalanie wyników), ale **nie** uruchamia na końcu dashboardu — dashboard trzymamy włączony osobno cały czas, żeby Harmonogram zadań mógł odpalać ten skrypt co godzinę bez konfliktu portu. Właśnie ten plik wskazuje `setup_scheduler.bat` (patrz [KROK 6](#krok-6--automatyzacja-uruchamianie-co-godzinę)).
 
 ```bat
-run_hourly.bat
+run_pipeline_scheduled.bat
 ```
 
 ---
 
 ## Co dokładnie robi program? — Opis wszystkich kroków
 
-### Krok 1/10 — Pobieranie danych z 5 źródeł (`fetch`)
+Pełny pipeline (`run_full_pipeline.bat`) ma 14 kroków — PM10 i PM2.5 przechodzą przez
+**identyczną architekturę modelu** (ten sam kod `train_pm10_rf.py`/`predict_pm10.py`/`backtest_pm10.py`,
+tylko inny `--target`). Różnica jest tylko w **danych wejściowych do treningu PM2.5**
+(zobacz Krok 5) — patrz też uwaga „Skąd PM2.5, skoro WAQI go nie ma?" niżej.
+
+### Krok 1/14 — Pobieranie danych z 5 źródeł (`fetch`)
 
 Program łączy się z internetem i pobiera dane z pięciu różnych źródeł:
 
@@ -130,11 +143,11 @@ Każde źródło zapisuje swoje dane do osobnego pliku CSV w folderze `data/`.
 
 > **CSV** (Comma-Separated Values) to prosty format pliku tekstowego, w którym dane ułożone są w kolumny rozdzielone przecinkami — można go otworzyć w Excelu.
 
-### Krok 2/10 — Scalanie danych godzinowych (`merge_hourly`)
+### Krok 2/14 — Scalanie danych godzinowych (`merge_hourly`)
 
 Skrypt `merge_hourly.py` łączy dane ze wszystkich pobranych plików w jeden wspólny plik `data/merged_hourly.csv`. Wyrównuje wszystkie pomiary do wspólnej osi czasu (co godzinę) i wypełnia ewentualne luki.
 
-### Krok 3/10 — Budowa cech dla modelu AI (`features`)
+### Krok 3/14 — Budowa cech dla modelu AI (`features`)
 
 Skrypt `features.py` przetwarza scalone dane i tworzy plik `data/features_pm10.csv` zawierający zmienne wejściowe (cechy) dla modelu AI:
 
@@ -142,7 +155,7 @@ Skrypt `features.py` przetwarza scalone dane i tworzy plik `data/features_pm10.c
 - **Średnie kroczące** — uśrednione wartości PM10 z ostatnich 3, 6, 12 i 24 godzin
 - **Dane pogodowe** — temperatura, wilgotność, ciśnienie, prędkość i kierunek wiatru, opady deszczu
 
-### Krok 4/10 — Trening modelu AI dla PM10 (`train_pm10_rf`)
+### Krok 4/14 — Trening modelu AI dla PM10 (`train_pm10_rf`)
 
 Skrypt `train_pm10_rf.py` uczy model **Random Forest** (las losowy — rodzaj algorytmu uczenia maszynowego opartego na wielu drzewach decyzyjnych). Model analizuje historyczne dane i uczy się zależności między warunkami pogodowymi a stężeniem PM10.
 
@@ -150,41 +163,115 @@ Wytrenowany model zapisywany jest do pliku `models/pm10_pipeline.pkl`.
 
 > **Random Forest** buduje setki lub tysiące małych „drzewek decyzyjnych" i uśrednia ich odpowiedzi, co daje znacznie lepszą dokładność niż jedno drzewo.
 
-### Krok 5/10 — (Opcjonalnie) Trening modelu dla PM2.5
+Skrypt sam wykrywa i naprawia typowy problem po scalaniu: jeśli kanoniczna kolumna celu (np. `PM10`)
+ma mniej danych niż jej alias po `merge_asof` (`PM10_x`/`PM10_y`/`pm10_mean`), automatycznie
+przełącza się na alias z największą liczbą realnych wartości (`utils_features.resolve_best_target_alias`).
+Jeśli w ogóle brakuje min. 72 realnych pomiarów, trening jest bezpiecznie pomijany z czytelnym
+ostrzeżeniem zamiast produkować bezwartościowy model.
 
-W bieżącej wersji ten krok jest wyłączony — projekt skupia się na PM10. Skrypt `train_pm25.py` istnieje i można go uruchomić ręcznie.
+### Krok 5/14 — Przygotowanie danych PM2.5 (`estimate_pm25_from_pm10`)
 
-### Krok 6/10 — Prognozowanie PM10 na 24 godziny (`predict_pm10`)
+**To jest jedyna nietypowa część pipeline'u.** Lokalne źródło PM2.5 (prywatne czujniki
+**Syngeos** koło Słupska — WAQI dla Słupska go nie raportuje) nie ma API archiwalnego,
+tylko bieżący odczyt, więc realnej historii jest bardzo mało (kilkanaście godzin). Skrypt
+`estimate_pm25_from_pm10.py`:
 
-Skrypt `predict_pm10.py` używa wytrenowanego modelu do wygenerowania prognozy stężeń PM10 na kolejne 24 godziny. Wyniki zapisywane są do pliku `outputs/pm10_pred_latest.csv`.
+1. **Sprawdza, ile jest realnych pomiarów PM2.5** w `merged_hourly.csv`.
+2. **Jeśli >= 72h (próg treningu)** — kopiuje dane bez zmian. Model uczy się wyłącznie na
+   realnych danych, dokładnie jak PM10. To docelowy, w pełni wiarygodny stan.
+3. **Jeśli mniej** — szacuje PM2.5 dla całej historii jako `PM10_realne × współczynnik(sezon)`.
+   Współczynnik (mediana PM2.5/PM10) jest liczony osobno dla sezonu grzewczego i pozostałego
+   okresu, skalibrowany na garstce realnych, równoległych pomiarów PM2.5+PM10 z Syngeos.
+   Wynik zapisywany jest do `data/merged_hourly_pm25_bootstrap.csv` z jawną kolumną
+   `PM2.5_is_estimated` i opisem metodologii w `models/pm25_bootstrap_meta.txt`.
 
-### Krok 7/10 — (Opcjonalnie) Prognozowanie PM2.5
+**To są dane szacowane, nie pomiar** — dashboard (zakładka „PM2.5") pokazuje to wyraźnie
+pomarańczowym ostrzeżeniem, dopóki trwa ten tryb. Krok uruchamia się automatycznie za
+każdym razem — sam „awansuje" do czystych danych rzeczywistych, gdy tylko zbierze się
+wystarczająco dużo prawdziwych pomiarów (nie trzeba nic ręcznie przełączać).
 
-Wyłączone w bieżącej wersji. Skrypt `predict_pm25.py` istnieje do ręcznego użycia.
+### Krok 6/14 — Trening modelu AI dla PM2.5 (`train_pm10_rf --target PM2.5`)
 
-### Krok 8/10 — Backtest historyczny (`backtest_pm10`)
+Ten sam skrypt i ta sama architektura co dla PM10 — jedyna różnica to `--target PM2.5`,
+`--csv-path data/merged_hourly_pm25_bootstrap.csv` (wynik Kroku 5) i inna ścieżka zapisu
+(`models/pm25_pipeline.pkl`).
 
-Skrypt `backtest_pm10.py` sprawdza wstecznie, jak dobrze model przewidywał wartości PM10 na danych historycznych. Wynik (plik `outputs/pm10_backtest_YYYYMMDD_HHMMSS.csv`) zawiera kolumny `y_true` (prawdziwe pomiary) i `y_pred` (prognozy modelu).
+### Krok 7/14 — Prognozowanie PM10 na 72 godziny (`predict_pm10`)
 
-Osiągane metryki dokładności:
+Skrypt `predict_pm10.py` używa wytrenowanego modelu do wygenerowania prognozy stężeń PM10 na kolejne 72 godziny. Prognoza liczona jest **rekurencyjnie** — wynik dla godziny *h* staje się danymi wejściowymi dla godziny *h+1*, dlatego niepewność rośnie wraz z odległością w czasie (patrz `backtest_horizon.py` w Kroku 13 i zakładka „Dokładność prognozy" w panelu). Wyniki zapisywane są do pliku `outputs/pm10_pred_latest.csv`.
 
-- MAE (średni błąd bezwzględny): **ok. 0.47 µg/m³**
-- RMSE (pierwiastek błędu średniokwadratowego): **ok. 1.26 µg/m³**
-- R² (współczynnik dopasowania, max 1.0): **ok. 0.97**
+### Krok 8/14 — Prognozowanie PM2.5 na 72 godziny (`predict_pm10 --model pm25_pipeline.pkl`)
 
-### Krok 9/10 — (Opcjonalnie) Backtest PM2.5
+Ten sam skrypt `predict_pm10.py`, tylko wskazuje na model PM2.5 — wynik trafia do `outputs/pm25_pred_latest.csv`. Pomijany (z ostrzeżeniem w logu), dopóki model PM2.5 nie istnieje.
 
-Wyłączony w bieżącej wersji.
+### Krok 9/14 — Backtest historyczny PM10 (`backtest_pm10` + `backtest_horizon`)
 
-### Krok 10/10 — Scalanie wyników do panelu (`merge_pm10_results`)
+Skrypt `backtest_pm10.py` sprawdza wstecznie błąd **1-krokowy** (h+1) — jak dobrze model przewidywał wartość PM10 mając dostęp do prawdziwych opóźnień z poprzednich godzin. Wynik (plik `outputs/pm10_backtest_YYYYMMDD_HHMMSS.csv`) zawiera kolumny `y_true` (prawdziwe pomiary) i `y_pred` (prognozy modelu).
+
+Osiągane metryki walidacyjne modelu (na zbiorze wydzielonym chronologicznie): MAE ≈ 1.8–3.2 µg/m³, R² ≈ 0.88 (dokładne wartości z ostatniego treningu — plik `logs/train_pm10_rf.log`).
+
+Osobno, skrypt **`backtest_horizon.py`** mierzy błąd **wieloetapowej, rekurencyjnej** prognozy — dokładnie tak, jak działa ona w produkcji — osobno dla każdej godziny horyzontu (h=1..72). To uczciwa odpowiedź na pytanie „na ile mogę zaufać prognozie za 3 dni?". Wynik trafia do `outputs/pm10_horizon_accuracy.csv` i jest wizualizowany w zakładce **„Dokładność prognozy"** panelu. Ten krok jest wolny (~20-30 min) i uruchamia się tylko w `run_full_pipeline.bat`, nie w godzinowym `run_pipeline_scheduled.bat`.
+
+```bat
+py src\backtest_horizon.py --max-horizon 72 --step-hours 24
+```
+
+**Ważne — porównanie z prognozą naiwną („bez zmian”).** `backtest_horizon.py` liczy też baseline:
+co by było, gdyby po prostu założyć, że stężenie się nie zmieni. Wynik jest pouczający i pokazany
+w dashboardzie bez koloryzowania:
+
+| Horyzont | MAE modelu | MAE baseline | Kto wygrywa |
+| --- | --- | --- | --- |
+| 1h | 1.99 | 4.53 | Model, o **56%** dokładniejszy |
+| 6h | 4.35 | 6.54 | Model, o **34%** dokładniejszy |
+| 24h | 7.45 | 7.45 | Remis |
+| 48h | 10.54 | 8.70 | **Baseline** dokładniejszy o 21% |
+| 72h | 12.66 | 9.07 | **Baseline** dokładniejszy o 40% |
+
+Model AI wyraźnie wygrywa do ok. **22h**. Powyżej tego progu błąd rekurencyjnej prognozy narasta
+szybciej niż błąd prostego „załóż że będzie jak teraz” — to znany, uczciwie tu pokazany
+ograniczenie modeli autoregresyjnych na długich horyzontach. Dashboard komunikuje to wprost w
+zakładce „Dokładność prognozy" zamiast chować niewygodny wynik.
+
+Dla PM2.5 (dane szacowane, patrz Krok 5) walidacyjne MAE ≈ 2.7 µg/m³, ale R² wychodzi
+**ujemny** (ok. -10) — nie dlatego, że model jest bezużyteczny, tylko dlatego, że sam cel
+(wartości rzędu 1-4 µg/m³ latem) ma bardzo małą wariancję, więc R² jest tu mylącą miarą.
+Liczby te są pokazane w dashboardzie bez upiększania — to element uczciwości danych w tym
+projekcie.
+
+### Krok 10/14 — Backtest historyczny PM2.5 (`backtest_pm10 --target PM2.5`)
+
+Analogicznie do Kroku 9, ale dla PM2.5 — pomijany, dopóki nie ma jeszcze modelu PM2.5.
+
+### Krok 11/14 — Scalanie wyników PM10 do panelu (`merge_pm10_results --pollutant pm10`)
 
 Skrypt `merge_pm10_results.py` łączy w jeden plik `outputs/pm10_all_latest.csv`:
 
 - wyniki backtestów (historia porównawcza)
-- prognozy na kolejne 24 godziny
-- prawdziwe pomiary z serwisu WAQI
+- prognozy na kolejne 72 godziny
+- prawdziwe pomiary z serwisu WAQI/GIOŚ
 
 Ten plik jest następnie odczytywany przez panel wizualizacji.
+
+### Krok 12/14 — Scalanie wyników PM2.5 do panelu (`merge_pm10_results --pollutant pm25`)
+
+Ten sam skrypt, flaga `--pollutant pm25` zamienia nazwy kolumn na `pm25_true`/`pm25_pred`/`pm25_hist`
+i pomija fallback z WAQI (bo WAQI nie ma PM2.5 dla Słupska). Wynik: `outputs/pm25_all_latest.csv`,
+odczytywany przez zakładkę **„PM2.5"** w panelu. Pomijany, dopóki nie ma jeszcze backtestu/predykcji PM2.5.
+
+### Krok 13/14 — Audyt dokładności PM10 w funkcji horyzontu (`backtest_horizon`)
+
+Patrz opis w Kroku 9 — uruchamiany tu z `--step-hours 48` (szybszy wariant), żeby pełny pipeline
+nie trwał zbyt długo przy ręcznym uruchomieniu.
+
+### Krok 14/14 — Uruchomienie panelu wizualizacji (`streamlit run`)
+
+Ostatni krok uruchamia panel (dashboard) `app/app_extended_multi.py` i
+otwiera go w domyślnej przeglądarce pod adresem `http://localhost:8501`.
+To ten sam panel opisany niżej w sekcji [„Uruchomienie panelu wizualizacji
+(Dashboard)"](#krok-5--uruchomienie-panelu-wizualizacji-dashboard) — przy
+uruchomieniu przez `run_full_pipeline.bat` nie trzeba go już uruchamiać
+ręcznie.
 
 ---
 
@@ -201,12 +288,20 @@ cd C:\Programy\Powietrze\SmogGuardAI
 py -m streamlit run src/streamlit_pm10_dashboard.py
 ```
 
-### Panel rozszerzony (wielozanieczyszczeniowy)
+### Panel rozszerzony — `app/app_extended_multi.py` (zalecany, używany przez `run_full_pipeline.bat`)
 
 ```bat
 cd C:\Programy\Powietrze\SmogGuardAI
 py -m streamlit run app/app_extended_multi.py
 ```
+
+Ten panel jest tym, który otwiera się automatycznie po `run_full_pipeline.bat`, i zawiera:
+
+- **Pasek KPI na górze** — aktualny PM10, prognoza za 24h/48h/72h, każda wartość z kategorią jakości powietrza wg progów GIOŚ (kolor tła: zielony → fioletowy).
+- **Plakietkę wiarygodności danych** — jawna informacja, że PM10 pochodzi z oficjalnego archiwum GIOŚ, a pogoda z IMGW/Open-Meteo (nie z danych syntetycznych).
+- **Rozwijane „O projekcie"** — metodologia w skrócie, przeznaczona do prezentacji (np. komisji konkursowej).
+- **Zakładkę „Dokładność prognozy"** — wykres błędu (MAE/RMSE) w funkcji horyzontu h=1..72h, **porównanie z prognozą naiwną „bez zmian"** (model musi ją pokonywać, żeby mieć sens — powyżej ok. 22h przestaje), oraz **wyjaśnialność modelu**: wykres ważności cech (feature importance) z prostym tłumaczeniem "na czym model się opiera" zamiast czarnej skrzynki.
+- Zakładki: Historia PM, Rzeczywiste vs prognoza (z czytelną legendą kolorów), Predykcja (z tabelą godzina-po-godzinie i kolorami kategorii), **PM2.5** (ta sama architektura co PM10 — pokazuje pasek postępu zbierania danych, dopóki nie ma jeszcze 72h historii), Dokładność prognozy, Pogoda.
 
 Po chwili w konsoli pojawią się adresy:
 
@@ -293,7 +388,17 @@ Uruchom jako administrator — kliknij prawym przyciskiem myszy na plik, wybierz
 setup_scheduler.bat
 ```
 
-Skrypt automatycznie utworzy zadanie o nazwie `Powietrze_Slupsk_Hourly`, które będzie uruchamiać `run_hourly.bat` co godzinę.
+> **Wymagane uprawnienia administratora.** Tworzenie zadań w Harmonogramie zadań Windows wymaga podniesionych
+> uprawnień — uruchomienie bez „Uruchom jako administrator" zakończy się błędem „Odmowa dostępu".
+
+Skrypt utworzy zadanie o nazwie `Powietrze_Slupsk_Hourly`, które będzie uruchamiać `run_pipeline_scheduled.bat`
+co godzinę (pobieranie danych, trening, prognoza 72h — **bez** otwierania dashboardu). Dashboard uruchom
+osobno i zostaw włączony (`py -m streamlit run app/app_extended_multi.py`) — sam odświeży dane co minutę
+(cache TTL) i po każdym przebiegu Harmonogramu pokaże świeżą prognozę.
+
+> **Uwaga:** wcześniejsza wersja tego skryptu wskazywała na nieaktualną ścieżkę projektu (`air3\run_hourly.bat`)
+> sprzed przeniesienia/przemianowania folderu na `SmogGuardAI` — przez to automatyczne odświeżanie danych
+> faktycznie nie działało od kilku miesięcy. Zostało to naprawione.
 
 ### Ręczna konfiguracja przez Harmonogram zadań
 
@@ -301,7 +406,7 @@ Skrypt automatycznie utworzy zadanie o nazwie `Powietrze_Slupsk_Hourly`, które 
 2. Kliknij „Utwórz zadanie podstawowe..." w prawym panelu.
 3. Nazwa: `Powietrze_Slupsk_Hourly`
 4. Wyzwalacz: Co godzinę
-5. Akcja: Uruchom program → wskaż plik `C:\Programy\Powietrze\SmogGuardAI\run_hourly.bat`
+5. Akcja: Uruchom program → wskaż plik `C:\Programy\Powietrze\SmogGuardAI\run_pipeline_scheduled.bat`
 6. Kliknij Zakończ.
 
 ### Usunięcie zaplanowanego zadania
@@ -332,10 +437,11 @@ SmogGuardAI/
  ├─ .env                     ← Twoja konfiguracja (token API, stacje)
  ├─ .env.example             ← wzór pliku .env
  ├─ requirements.txt         ← lista bibliotek Python
- ├─ run_full_pipeline.bat    ← pełny potok (wszystkie 10 kroków)
- ├─ run_hourly.bat           ← szybki potok godzinowy
- ├─ setup_scheduler.bat      ← konfiguracja automatyzacji (uruchom jako admin)
- └─ remove_scheduler.bat     ← usunięcie automatyzacji
+ ├─ run_full_pipeline.bat       ← pełny potok + dashboard (pierwsze uruchomienie ręczne)
+ ├─ run_pipeline_scheduled.bat  ← ten sam potok BEZ dashboardu (do Harmonogramu zadań)
+ ├─ setup_scheduler.bat         ← konfiguracja automatyzacji (uruchom jako admin)
+ ├─ remove_scheduler.bat        ← usunięcie automatyzacji
+ └─ src/backtest_horizon.py     ← audyt dokładności prognozy w funkcji horyzontu (h=1..72h)
 ```
 
 ---
@@ -384,11 +490,25 @@ Sprawdź logi w folderze `logs/` — każdy krok potoku zapisuje tam swój rapor
 | --- | --- |
 | Algorytm | Random Forest (scikit-learn) |
 | Liczba drzew | 300 |
-| Horyzont prognozy | 24 godziny |
+| `min_samples_leaf` | 10 (patrz niżej — dobrane empirycznie) |
+| Rozmiar pliku modelu | ~3,5 MB (PM10), ~3,8 MB (PM2.5) — kompresja joblib `compress=6` |
+| Horyzont prognozy | 72 godziny (prognoza rekurencyjna) |
 | Częstotliwość aktualizacji | Co godzinę |
-| MAE | ~0.47 µg/m³ |
-| R² | ~0.97 |
+| MAE (walidacja, chronologiczny podział 80/20) | ~2,94 µg/m³ (PM10) |
+| R² (walidacja, chronologiczny podział 80/20) | ~0,59 (PM10) |
+| Błąd w funkcji horyzontu (h=1..72h) | zobacz `outputs/pm10_horizon_accuracy.csv` / zakładka „Dokładność prognozy" |
 | Minimalna liczba wierszy do treningu | 72 godziny (3 doby) |
+
+**Dlaczego `min_samples_leaf=10`, a nie domyślne 1?** Bez ograniczenia (domyślne ustawienie
+scikit-learn) drzewa rosną aż każdy liść ma pojedynczą próbkę — dopasowują się do szumu
+pojedynczych pomiarów, a plik modelu waży **~130 MB**. Sprawdziłem empirycznie kilkanaście
+wartości `min_samples_leaf` (1–50) na tych samych danych walidacyjnych: okazało się, że
+**większe liście jednocześnie poprawiają dokładność i zmniejszają plik** — bo pojedyncze
+liście to przeuczenie, nie sygnał. Przy `min_samples_leaf=10` MAE spada z 3,04 do **2,94**,
+R² rośnie z 0,57 do **0,59**, a plik z 130 MB do **3,5 MB** (37x mniej). To nie jest kompromis
+jakość-za-rozmiar — obie strony wygrywają. Dodatkowo `joblib.dump(..., compress=6)` daje
+bezstratną kompresję na dysku (ten sam model, mniejszy plik) bez zauważalnego wpływu na czas
+wczytywania (+0,2 s).
 
 ## Szybki start — podsumowanie
 

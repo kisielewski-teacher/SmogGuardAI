@@ -20,6 +20,53 @@ POLLUTANT_MAP = {
     "O3": {"col": "O3", "pred_col": "o3_pred", "file": "data/forecast_o3.csv"},
 }
 
+def resolve_best_target_alias(df: pd.DataFrame, target: str, min_rows: int = 10):
+    """Znajdź kolumnę z NAJWIĘKSZĄ liczbą realnych wartości dla danego zanieczyszczenia.
+
+    Po `merge_hourly.py`/`merge_asof` ten sam pomiar potrafi wylądować pod kilkoma
+    nazwami (np. dla PM10: 'PM10', 'PM10_x', 'PM10_y', 'pm10_mean'; dla PM2.5:
+    'PM2.5', 'PM2.5_x', 'PM2.5_y', 'pm25_mean'), a kolumna o "kanonicznej" nazwie
+    bywa prawie pusta. Ta funkcja jest niezależna od konkretnego zanieczyszczenia —
+    działa tak samo dla PM10, PM2.5 czy każdego kolejnego parametru — i zawsze
+    wskazuje alias z największą liczbą prawdziwych danych, więc trening/predykcja
+    nie uczy się po cichu na garstce wierszy.
+
+    Zwraca (best_alias_or_None, best_count). Gdy `target` sam ma najwięcej danych
+    (albo żaden alias nie ma >= min_rows), zwraca (None, current_count) — czyli
+    "zostań przy obecnej kolumnie".
+    """
+    def _base(name: str) -> str:
+        return name.lower().replace(".", "").replace("_", "").replace("-", "")
+
+    # Kolumny metadanych (liczba zagregowanych pomiarów, odchylenie std., flagi
+    # boolowskie typu is_estimated) NIE są samym stężeniem — np. 'pm25_count'
+    # zawiera małe liczby całkowite (0, 3, 18...), a 'PM2.5_is_estimated' same
+    # 0/1 — obie łatwo pomylić z realnymi wartościami µg/m³, jeśli dopasowywać
+    # tylko po nazwie bazowej (i obie mają WIĘCEJ non-null wartości niż rzadka
+    # kolumna z prawdziwym stężeniem, więc "wygrywają" bez tego wykluczenia).
+    EXCLUDED_SUBSTRINGS = ("count", "std", "estimated", "isestimated", "flag", "backfilled")
+
+    base = _base(target)
+    current = pd.to_numeric(df[target], errors="coerce").notna().sum() if target in df.columns else 0
+
+    best_alias, best_count = None, current
+    for c in df.columns:
+        if c == target:
+            continue
+        c_base = _base(c)
+        if base not in c_base:
+            continue
+        if any(sub in c_base for sub in EXCLUDED_SUBSTRINGS):
+            continue
+        cnt = pd.to_numeric(df[c], errors="coerce").notna().sum()
+        if cnt > best_count:
+            best_alias, best_count = c, cnt
+
+    if best_alias is not None and best_count >= min_rows:
+        return best_alias, int(best_count)
+    return None, int(current)
+
+
 def ensure_datetime(df: pd.DataFrame, col: str = "timestamp") -> pd.DataFrame:
     if col in df.columns:
         df[col] = pd.to_datetime(df[col], errors='coerce')

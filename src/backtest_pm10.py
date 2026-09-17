@@ -20,6 +20,7 @@ from datetime import datetime
 import joblib
 import numpy as np
 import pandas as pd
+from utils_features import resolve_best_target_alias
 
 # --- Kompatybilność unpickle (alias klas z treningu do __main__) ---
 # Upewnij się, że 'src' jest na ścieżce importów; jeśli odpalasz `py src\backtest_pm10.py`,
@@ -54,6 +55,11 @@ def parse_args():
 def main():
     args = parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
+    # Slug do nazwy pliku wyjściowego, ustalony PRZED ewentualną podmianą args.target
+    # na alias (np. 'PM2.5' -> 'pm25_median') — inaczej plik zawsze nazywałby się
+    # 'pm10_backtest_*.csv' nawet dla PM2.5, co myliłoby run_full_pipeline.bat
+    # (szuka najnowszego pm10_backtest_*.csv i pm25_backtest_*.csv osobno).
+    target_slug = args.target.lower().replace(".", "").replace("_", "")
 
     df = pd.read_csv(args.csv_path, sep=args.sep, encoding=args.encoding)
     if args.time_col not in df.columns:
@@ -71,23 +77,22 @@ def main():
 
     df = df.sort_values(args.time_col).reset_index(drop=True)
 
-    # Napraw kolumnę celu: jeśli PM10 ma mniej danych niż PM10_x, użyj PM10_x
-    PM10_MIN_ROWS = 10
-    PM10_MAX_PHYSICAL = 500.0
+    # Napraw kolumnę celu: jeśli ma mniej danych niż jej alias (PM10_x/PM10_y/
+    # pm10_mean albo PM2.5_x/PM2.5_y/pm25_mean), użyj aliasu — działa dla
+    # dowolnego zanieczyszczenia, patrz utils_features.resolve_best_target_alias.
+    TARGET_MIN_ROWS = 10
+    TARGET_MAX_PHYSICAL = 500.0
     target_count = df[args.target].notna().sum() if args.target in df.columns else 0
-    for alias in ["PM10_x", "PM10_y"]:
-        if alias in df.columns:
-            alias_count = pd.to_numeric(df[alias], errors="coerce").notna().sum()
-            if alias_count > target_count:
-                df[args.target] = pd.to_numeric(df[alias], errors="coerce")
-                target_count = alias_count
-                print(f"[INFO] Kolumna celu '{args.target}' zastąpiona danymi z '{alias}' ({alias_count} wierszy)")
-                break
-    # Odrzuć artefakty merge (ciśnienie w kolumnie PM10)
-    outliers = (df[args.target] > PM10_MAX_PHYSICAL).sum()
+    best_alias, best_count = resolve_best_target_alias(df, args.target, min_rows=TARGET_MIN_ROWS)
+    if best_alias is not None:
+        df[args.target] = pd.to_numeric(df[best_alias], errors="coerce")
+        target_count = best_count
+        print(f"[INFO] Kolumna celu '{args.target}' zastąpiona danymi z '{best_alias}' ({best_count} wierszy)")
+    # Odrzuć artefakty merge (np. ciśnienie w kolumnie PM10, literówki w PM2.5)
+    outliers = (df[args.target] > TARGET_MAX_PHYSICAL).sum()
     if outliers > 0:
-        df.loc[df[args.target] > PM10_MAX_PHYSICAL, args.target] = np.nan
-        print(f"[INFO] Wyzerowano {outliers} wierszy z {args.target} > {PM10_MAX_PHYSICAL} (artefakty)")
+        df.loc[df[args.target] > TARGET_MAX_PHYSICAL, args.target] = np.nan
+        print(f"[INFO] Wyzerowano {outliers} wierszy z {args.target} > {TARGET_MAX_PHYSICAL} (artefakty)")
 
     # Wczytanie pipeline'u z obsługą ewentualnego błędu __main__.ExtendedFeatureBuilder
     try:
@@ -110,22 +115,22 @@ def main():
             (max(fb.config.rolling_windows) if fb.config.rolling_windows else 0),
         )
 
-    # Jeżeli pipeline oczekuje innej nazwy kolumny celu (np. 'PM10') niż ta w CSV,
-    # upewnij się że ta kolumna ma wystarczająco dużo danych po naszej naprawie.
+    # Jeżeli pipeline oczekuje innej nazwy kolumny celu (np. 'PM10' albo 'PM2.5')
+    # niż ta w CSV, upewnij się że ta kolumna ma wystarczająco dużo danych po naszej naprawie.
     if fb is not None:
         expected_target = getattr(fb.config, "target_col", None)
         if expected_target:
             exp_count = df[expected_target].notna().sum() if expected_target in df.columns else 0
-            if exp_count < PM10_MIN_ROWS:
+            if exp_count < TARGET_MIN_ROWS:
                 # Skopiuj naprawiony args.target do expected_target
                 if args.target in df.columns:
                     df[expected_target] = df[args.target]
                     print(f"[INFO] Skopiowano naprawioną kolumnę '{args.target}' -> '{expected_target}' (dla featurera)")
                 else:
-                    cand = [c for c in df.columns if 'pm10' in c.lower()]
-                    if cand:
-                        df[expected_target] = df[cand[0]]
-                        print(f"[INFO] Skopiowano kolumnę '{cand[0]}' -> '{expected_target}' (dla featurera)")
+                    best_alias, _ = resolve_best_target_alias(df, expected_target, min_rows=1)
+                    if best_alias is not None:
+                        df[expected_target] = df[best_alias]
+                        print(f"[INFO] Skopiowano kolumnę '{best_alias}' -> '{expected_target}' (dla featurera)")
                     else:
                         raise RuntimeError(f"Brak kolumny z danymi celu do backtestu.")
 
@@ -161,7 +166,7 @@ def main():
     mape = float(np.mean(np.abs(out.loc[nonzero, "error"] / out.loc[nonzero, "y_true"])) * 100) if nonzero.any() else float("nan")
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_path = os.path.join(args.out_dir, f"pm10_backtest_{stamp}.csv")
+    out_path = os.path.join(args.out_dir, f"{target_slug}_backtest_{stamp}.csv")
     out.to_csv(out_path, index=False)
 
     print("Zapisano backtest do:", out_path)

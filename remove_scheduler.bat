@@ -1,4 +1,4 @@
-
+﻿
 @echo off
 set "TASK_NAME=Powietrze_Slupsk_Hourly"
 echo [INFO] Usuwanie zadania: %TASK_NAME%
