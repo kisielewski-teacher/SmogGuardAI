@@ -58,6 +58,63 @@ def test_waqi_fetch_mocked(monkeypatch, tmp_path):
     assert df["PM2.5"].iloc[0] == 5.1
 
 
+def test_waqi_fetch_column_alignment_survives_field_reordering(monkeypatch, tmp_path):
+    """Regresja dla realnego buga znalezionego w produkcji: WAQI API nie
+    gwarantuje kolejności kluczy w 'iaqi' między wywołaniami. Stary kod
+    dopisywał df.to_csv(..., header=False) pozycyjnie, więc gdy druga
+    odpowiedź miała klucze w innej kolejności (np. brak 'w', inna kolejność
+    'p'/'t'/'h'), wartości trafiały pod ZŁE nagłówki (np. ciśnienie pod PM10)
+    bez żadnego błędu — zobacz historyczne dane: ~28 wierszy z ciśnieniem
+    55-91 hPa i ujemną wilgotnością/wiatrem. Ten test gwarantuje, że kolumny
+    są zawsze wyrównywane do nagłówka pliku przed zapisem."""
+    monkeypatch.setenv("WAQI_TOKEN", "test-token")
+    mod = load_module_from_path("waqi_fetch_align_test", SRC / "waqi_fetch.py")
+    monkeypatch.setattr(mod, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(mod, "OUTPUT_FILE", "aqicn_test.csv")
+
+    # Pierwsza odpowiedź: kolejność iaqi = h, p, t, w, pm10
+    sample1 = {
+        "status": "ok",
+        "data": {
+            "time": {"s": "2026-01-01 00:00:00"},
+            "aqi": 20,
+            "iaqi": {"h": {"v": 80}, "p": {"v": 1015}, "t": {"v": 5}, "w": {"v": 3}, "pm10": {"v": 12}},
+        },
+    }
+    # Druga odpowiedź: INNA kolejność iaqi (pm10 pierwsze, brak 'w') — dokładnie
+    # ten scenariusz, który wcześniej psuł wyrównanie kolumn.
+    sample2 = {
+        "status": "ok",
+        "data": {
+            "time": {"s": "2026-01-01 01:00:00"},
+            "aqi": 18,
+            "iaqi": {"pm10": {"v": 14}, "t": {"v": 6}, "h": {"v": 82}, "p": {"v": 1016}},
+        },
+    }
+
+    responses = [sample1, sample2]
+
+    def fake_get(*a, **k):
+        return DummyResp(json_data=responses.pop(0))
+
+    monkeypatch.setattr(mod, "session", type("S", (), {"get": staticmethod(fake_get)})())
+
+    mod.main()
+    mod.main()
+
+    out = pd.read_csv(tmp_path / "aqicn_test.csv")
+    assert list(out.columns) == ["timestamp", "aqi", "wilgotnosc_wzgledna", "cisnienie", "PM10", "temperatura", "predkosc_wiatru", "wg", "_backfilled"]
+    assert len(out) == 2
+    # Wiersz 2 (kolejność iaqi odwrócona) MUSI mieć wartości pod właściwymi kolumnami,
+    # nie przesunięte pozycyjnie.
+    row2 = out.iloc[1]
+    assert row2["PM10"] == 14
+    assert row2["temperatura"] == 6
+    assert row2["wilgotnosc_wzgledna"] == 82
+    assert row2["cisnienie"] == 1016
+    assert 800 <= row2["cisnienie"] <= 1100, "Ciśnienie nie może wylądować w innej kolumnie"
+
+
 def test_syngeos_fetch_main_mocked(monkeypatch, tmp_path):
     mod = load_module_from_path("syngeos_fetch_test", SRC / "syngeos_fetch.py")
 

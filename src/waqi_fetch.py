@@ -66,6 +66,10 @@ def _last_saved_ts(path: Path) -> pd.Timestamp | None:
     except Exception:
         return None
 
+CANONICAL_COLUMNS = ["timestamp", "aqi", "wilgotnosc_wzgledna", "cisnienie", "PM10",
+                      "temperatura", "predkosc_wiatru", "wg", "_backfilled"]
+
+
 def main():
     try:
         data = fetch()
@@ -75,10 +79,28 @@ def main():
         if out.exists() and _last_saved_ts(out) == new_ts:
             logger.info(f"Duplikat timestamp {new_ts} – pomijam zapis.")
             return
+
+        # KRYTYCZNE: kolejność kluczy w odpowiedzi WAQI (iaqi) nie jest gwarantowana
+        # między wywołaniami — jeśli dopisalibyśmy df.to_csv(..., header=False) z
+        # kolumnami w innej kolejności niż nagłówek pliku, wartości trafiłyby do
+        # NIEWŁAŚCIWYCH kolumn (np. ciśnienie pod PM10) bez żadnego błędu. Dlatego
+        # zawsze wyrównujemy kolumny do istniejącego nagłówka pliku (albo do stałej
+        # kolejności kanonicznej przy tworzeniu nowego pliku) PRZED zapisem.
+        if out.exists():
+            existing_header = pd.read_csv(out, nrows=0).columns.tolist()
+            target_columns = existing_header
+        else:
+            target_columns = CANONICAL_COLUMNS
+
+        for col in target_columns:
+            if col not in df.columns:
+                df[col] = pd.NA
+        df = df[target_columns]
+
         mode = "a" if out.exists() else "w"
         header = not out.exists()
         df.to_csv(out, mode=mode, header=header, index=False)
-        logger.info(f"Dopisałem {len(df)} wiersz(e) do {out}")
+        logger.info(f"Dopisałem {len(df)} wiersz(e) do {out} (kolumny: {target_columns})")
     except Exception as e:
         logger.exception(f"Błąd pobierania WAQI: {e}")
         raise

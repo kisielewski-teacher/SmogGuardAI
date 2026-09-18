@@ -296,6 +296,24 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
 
     if "timestamp" in df.columns:
         df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+
+    # Warstwa bezpieczeństwa: niezależnie od źródła (WAQI, merge, prognoza),
+    # fizycznie niemożliwa wartość nie powinna nigdy trafić na dashboard.
+    # Znaleziony w produkcji przypadek: przesunięcie kolumn przy dopisywaniu
+    # CSV (kolejność pól z API WAQI nie jest gwarantowana) potrafiło wstawić
+    # ciśnienie (np. 1010 hPa) w miejsce PM10, pokazując "1010 µg/m³" na
+    # dashboardzie. Ucinamy takie wartości u źródła wyświetlania.
+    physical_ranges = {
+        "pm10": (0, 500), "pm25": (0, 500),
+        "pm10_true": (0, 500), "pm10_pred": (0, 500), "pm10_hist": (0, 500),
+        "pm25_true": (0, 500), "pm25_pred": (0, 500), "pm25_hist": (0, 500),
+        "temp": (-40, 45), "rh": (0, 100), "pressure": (850, 1100), "wind": (0, 60),
+    }
+    for col, (lo, hi) in physical_ranges.items():
+        if col in df.columns:
+            vals = pd.to_numeric(df[col], errors="coerce")
+            df[col] = vals.where(vals.between(lo, hi))
+
     return df
 
 def add_roll(df: pd.DataFrame, col: str, w: int) -> None:
