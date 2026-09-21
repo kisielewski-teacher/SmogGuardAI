@@ -129,18 +129,23 @@ Pełny pipeline (`run_full_pipeline.bat`) ma 14 kroków — PM10 i PM2.5 przecho
 tylko inny `--target`). Różnica jest tylko w **danych wejściowych do treningu PM2.5**
 (zobacz Krok 5) — patrz też uwaga „Skąd PM2.5, skoro WAQI go nie ma?" niżej.
 
-### Krok 1/14 — Pobieranie danych z 5 źródeł (`fetch`)
+### Krok 1/14 — Pobieranie danych na żywo (`fetch`)
 
-Program łączy się z internetem i pobiera dane z pięciu różnych źródeł:
+Program łączy się z internetem i pobiera dane z trzech źródeł:
 
 - **WAQI** (`waqi_fetch.py`) — dane o jakości powietrza z sieci aqicn.org dla Słupska (PM10, PM2.5, NO2, O3, temperatura, wilgotność, ciśnienie, prędkość wiatru)
 - **IMGW** (`imgw_fetch.py`) — dane pogodowe z synoptycznych stacji meteorologicznych IMGW (Słupsk, Koszalin, Ustka i inne)
-- **GIOŚ** (`gios_fetch.py`) — oficjalne pomiary jakości powietrza z sieci Inspekcji Ochrony Środowiska
-- **Airly** (`airly_fetch.py`) — dane z czujników sieci Airly
-- **Sensor.Community** (`sensor_community_fetch.py`) — dane z obywatelskich czujników jakości powietrza
+- **Syngeos** (`syngeos_fetch.py`) — bieżące odczyty z prywatnych czujników PM2.5 koło Słupska (patrz Krok 5 — dlaczego tylko bieżące, nie archiwalne)
 
 Każde źródło zapisuje swoje dane do osobnego pliku CSV w folderze `data/`.
 
+> **GIOŚ** wchodzi do pipeline'u inaczej — nie jest pobierany na żywo co godzinę, tylko wgrany raz jako
+> zweryfikowana historia (`src/gios_real_backfill.py` → `data/gios_slupsk.csv`), którą `merge_hourly.py`
+> dokleja przy każdym scalaniu (patrz Krok 2). To właśnie te dane są kanonicznym źródłem prawdy dla PM10
+> (patrz Krok 4). Skrypty `airly_fetch.py` i `sensor_community_fetch.py` istnieją w `src/`, ale nie są
+> obecnie częścią `run_full_pipeline.bat`/`run_pipeline_scheduled.bat` — są używane tylko przez starszy,
+> nieużywany już `run_hourly.bat`.
+>
 > **CSV** (Comma-Separated Values) to prosty format pliku tekstowego, w którym dane ułożone są w kolumny rozdzielone przecinkami — można go otworzyć w Excelu.
 
 ### Krok 2/14 — Scalanie danych godzinowych (`merge_hourly`)
