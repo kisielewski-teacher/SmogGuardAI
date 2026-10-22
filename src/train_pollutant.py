@@ -93,11 +93,11 @@ def read_and_normalize(path: Path, target: str) -> tuple[pd.DataFrame, str]:
 def build_target_series(target: str) -> pd.DataFrame:
     """
     Buduje serię docelową (timestamp + target) z dostępnych źródeł:
-    priorytet: merged_hourly → WAQI → GIOS → Airly → Sensor.Community.
+    priorytet: merged_hourly -> GIOS -> WAQI (legacy) -> Airly -> Sensor.Community.
     Dane są zaokrąglane do godziny; przy duplikatach stosujemy średnią.
     """
     candidates = []
-    for path in [MERGED_HOURLY_CSV, AQICN_HIST_CSV, GIOS_CSV, AIRLY_CSV, SENSOR_COMMUNITY_CSV]:
+    for path in [MERGED_HOURLY_CSV, GIOS_CSV, AQICN_HIST_CSV, AIRLY_CSV, SENSOR_COMMUNITY_CSV]:
         if path.exists():
             try:
                 df, tgt = read_and_normalize(path, target)
@@ -118,7 +118,7 @@ def build_target_series(target: str) -> pd.DataFrame:
         )
 
     # priorytet źródeł
-    priority = [MERGED_HOURLY_CSV, AQICN_HIST_CSV, GIOS_CSV, AIRLY_CSV, SENSOR_COMMUNITY_CSV]
+    priority = [MERGED_HOURLY_CSV, GIOS_CSV, AQICN_HIST_CSV, AIRLY_CSV, SENSOR_COMMUNITY_CSV]
     def sort_key(item):  # item = (path, df, tgt)
         try:
             return priority.index(item[0])

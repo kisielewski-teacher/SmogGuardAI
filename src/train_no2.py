@@ -1,6 +1,11 @@
 
 # -*- coding: utf-8 -*-
 """
+⚠️ NIEUŻYWANE (2026-09-27) — stacja GIOŚ w Słupsku (ul. Kniaziewicza) nie ma czujnika NO2, a żadne
+inne źródło w projekcie (Syngeos, IMGW) też go nie mierzy. Ten skrypt zawsze kończy się błędem
+(0 próbek treningowych) i jest wyłączony z make_all_forecasts.py. Zob. TODO.md. Zostaje w repo na
+wypadek, gdyby stacja kiedyś dostała czujnik NO2 (albo dodano nową stację z nim jako źródło).
+
 Trenowanie modelu prognozy dla NO2
 Wejście: data/merged_hourly.csv (kolumna timestamp, parametry jakości powietrza + pogoda IMGW)
 Wyjście: models/no2_rf.pkl

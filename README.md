@@ -59,32 +59,25 @@ W przeciwnym razie pobierz i rozpakuj archiwum projektu do folderu `C:\Programy\
 
 ---
 
-## KROK 3 — Konfiguracja klucza API (wymagane tylko raz)
+## KROK 3 — Konfiguracja (wymagane tylko raz)
 
-Program pobiera dane z internetu i potrzebuje darmowego klucza dostępu (tokenu API) do serwisu WAQI (aqicn.org).
-
-### Jak uzyskać klucz API WAQI?
-
-1. Wejdź na: **<https://aqicn.org/data-platform/token/>**
-2. Wpisz swój adres e-mail i kliknij „Submit".
-3. Odbierz e-mail i skopiuj otrzymany token (ciąg liter i cyfr).
-
-### Jak skonfigurować plik .env?
+Program korzysta wyłącznie z darmowych, publicznych API GIOŚ i IMGW — **nie
+potrzebujesz żadnego klucza/tokenu API**, żeby go uruchomić.
 
 1. W folderze projektu `C:\Programy\Powietrze\SmogGuardAI` znajdź plik `.env.example`.
 2. Skopiuj go i zmień nazwę kopii na `.env` (bez słowa „example").
-3. Otwórz plik `.env` w Notatniku (kliknij prawym przyciskiem → Otwórz za pomocą → Notatnik).
-4. Zastąp tekst `WKLEJ_TUTAJ_SWOJ_TOKEN` swoim tokenem WAQI:
+3. Domyślna zawartość działa od razu — nic nie musisz zmieniać:
 
 ```env
-WAQI_TOKEN=abc123twój_token_tutaj
 CITY=Slupsk
 OUTPUT_FILE=aqicn_slupsk_data.csv
 IMGW_STATIONS=Slupsk,Koszalin,Chojnice,Ustka,Leba
 TZ=Europe/Warsaw
 ```
 
-1. Zapisz plik (`Ctrl+S`) i zamknij Notatnik.
+> Plik `.env` zawiera też zakomentowaną linię `WAQI_TOKEN` — to pozostałość po
+> starszej, zdeprecjonowanej integracji z WAQI (aqicn.org), której darmowy
+> token nie pozwala na użycie komercyjne. Możesz ją zignorować.
 
 ---
 
@@ -133,18 +126,23 @@ tylko inny `--target`). Różnica jest tylko w **danych wejściowych do treningu
 
 Program łączy się z internetem i pobiera dane z trzech źródeł:
 
-- **WAQI** (`waqi_fetch.py`) — dane o jakości powietrza z sieci aqicn.org dla Słupska (PM10, PM2.5, NO2, O3, temperatura, wilgotność, ciśnienie, prędkość wiatru)
+- **GIOŚ** (`gios_fetch.py`) — oficjalne, publiczne pomiary zanieczyszczeń (PM10, PM2.5, NO2, O3) ze stacji Słupsk, ul. Kniaziewicza — to główne i jedyne wymagane komercyjnie źródło pomiarów w programie
 - **IMGW** (`imgw_fetch.py`) — dane pogodowe z synoptycznych stacji meteorologicznych IMGW (Słupsk, Koszalin, Ustka i inne)
 - **Syngeos** (`syngeos_fetch.py`) — bieżące odczyty z prywatnych czujników PM2.5 koło Słupska (patrz Krok 5 — dlaczego tylko bieżące, nie archiwalne)
 
 Każde źródło zapisuje swoje dane do osobnego pliku CSV w folderze `data/`.
 
-> **GIOŚ** wchodzi do pipeline'u inaczej — nie jest pobierany na żywo co godzinę, tylko wgrany raz jako
-> zweryfikowana historia (`src/gios_real_backfill.py` → `data/gios_slupsk.csv`), którą `merge_hourly.py`
-> dokleja przy każdym scalaniu (patrz Krok 2). To właśnie te dane są kanonicznym źródłem prawdy dla PM10
-> (patrz Krok 4). Skrypty `airly_fetch.py` i `sensor_community_fetch.py` istnieją w `src/`, ale nie są
-> obecnie częścią `run_full_pipeline.bat`/`run_pipeline_scheduled.bat` — są używane tylko przez starszy,
-> nieużywany już `run_hourly.bat`.
+> Pełną historię GIOŚ (nie tylko bieżącą godzinę) buduje/uzupełnia osobno
+> `src/gios_real_backfill.py` → `data/gios_slupsk.csv`; `gios_fetch.py` dopisuje
+> tylko bieżącą godzinę przy każdym uruchomieniu pipeline'u. `merge_hourly.py`
+> łączy te dane z pogodą IMGW (patrz Krok 2) — GIOŚ jest kanonicznym źródłem
+> prawdy dla PM10/PM2.5/NO2/O3 (patrz Krok 4). Skrypty `waqi_fetch.py` i
+> `openmeteo_backfill.py` istnieją w `src/` wyłącznie dla zgodności z testami —
+> są zdeprecjonowane (darmowe API WAQI/Open-Meteo zabraniają użycia
+> komercyjnego, zob. `TODO.md`) i nie są już częścią żadnego pipeline'u.
+> Podobnie `airly_fetch.py` i `sensor_community_fetch.py` istnieją w `src/`, ale
+> nie są obecnie częścią `run_full_pipeline.bat`/`run_pipeline_scheduled.bat` —
+> są używane tylko przez starszy, nieużywany już `run_hourly.bat`.
 >
 > **CSV** (Comma-Separated Values) to prosty format pliku tekstowego, w którym dane ułożone są w kolumny rozdzielone przecinkami — można go otworzyć w Excelu.
 
@@ -427,8 +425,8 @@ remove_scheduler.bat
 ```text
 SmogGuardAI/
  ├─ data/                    ← dane źródłowe i scalone (CSV)
- │   ├─ aqicn_slupsk_data.csv    ← dane WAQI
- │   ├─ imgw_slupsk_hourly.csv   ← dane IMGW
+ │   ├─ gios_slupsk.csv          ← dane GIOŚ (główne źródło zanieczyszczeń)
+ │   ├─ imgw_synop_hourly.csv    ← dane IMGW (pogoda)
  │   └─ merged_hourly.csv        ← dane scalone (główne źródło)
  ├─ models/                  ← wytrenowane modele AI (pliki .pkl)
  │   └─ pm10_pipeline.pkl        ← model PM10
@@ -479,9 +477,12 @@ py -m pip install plotly
 
 Upewnij się, że wpisałeś poprawnie adres `http://localhost:8501` w pasku adresu przeglądarki (nie w pasku wyszukiwania).
 
-### „WAQI token error" lub brak danych
+### Brak danych / błąd pobierania GIOŚ lub IMGW
 
-Sprawdź plik `.env` — token WAQI musi być wpisany bez cudzysłowów i spacji.
+Sprawdź, czy masz połączenie z internetem i czy `data/gios_slupsk.csv` /
+`data/imgw_synop_hourly.csv` w ogóle istnieją — jeśli nie, uruchom ręcznie
+`py src\gios_real_backfill.py` (jednorazowo, buduje pełną historię) oraz
+`py src\imgw_fetch.py`.
 
 ### Jak sprawdzić czy wszystko działa poprawnie?
 

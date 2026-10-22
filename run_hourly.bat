@@ -42,9 +42,6 @@ if not exist "%PROJ_DIR%\data" mkdir "%PROJ_DIR%\data"
 if not exist "%PROJ_DIR%\logs" mkdir "%PROJ_DIR%\logs"
 
 REM === PIPELINE 1: POBIERANIE ===
-"%PYTHON%" "%PROJ_DIR%\src\waqi_fetch.py"
-if errorlevel 1 echo [WARN] waqi_fetch.py zakonczyl sie kodem %ERRORLEVEL%
-
 "%PYTHON%" "%PROJ_DIR%\src\imgw_fetch.py"
 if errorlevel 1 echo [WARN] imgw_fetch.py zakonczyl sie kodem %ERRORLEVEL%
 
@@ -74,9 +71,9 @@ REM "%PYTHON%" "%PROJ_DIR%\src\predict_pm25.py" >> "%PROJ_DIR%\logs\predict_pm25
 
 
 "%PYTHON%" "%PROJ_DIR%\src\merge_pm10_results.py" ^
-  --backtest "%PROJ_DIR%\data\aqicn_slupsk_data.csv" ^
+  --backtest "%PROJ_DIR%\data\gios_slupsk.csv" ^
   --prediction "%PROJ_DIR%\outputs\pm10_pred_latest.csv" ^
-  --weather "%PROJ_DIR%\data\aqicn_slupsk_data.csv" ^
+  --weather "%PROJ_DIR%\data\merged_hourly.csv" ^
   --time-col timestamp ^
   --coalesce-hist ^
   --out "%PROJ_DIR%\outputs\pm10_all_latest.csv" ^

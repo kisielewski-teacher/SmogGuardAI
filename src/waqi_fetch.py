@@ -1,4 +1,13 @@
 
+# ⚠️ DEPRECATED (2026-09) — WAQI (aqicn.org) zabrania komercyjnego wykorzystania
+# i redystrybucji danych na darmowym tokenie (zob. TODO.md, sekcja "blokery
+# sprzedaży"). Ten skrypt NIE jest już wywoływany przez run_full_pipeline.bat /
+# run_pipeline_scheduled.bat / run_hourly.bat — GIOŚ (gios_fetch.py,
+# gios_real_backfill.py) jest głównym, komercyjnie bezpiecznym źródłem
+# pomiarów. Plik zostaje w repo wyłącznie dla zgodności z istniejącymi
+# testami regresyjnymi (tests/test_fetchers_mocked.py) i jako dokumentacja
+# poprzedniej architektury — nie uruchamiaj go w nowych wdrożeniach.
+
 import os
 import logging
 from pathlib import Path

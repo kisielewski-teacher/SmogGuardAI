@@ -14,7 +14,7 @@ MODELS = REPO / "models"
 # files touched by the integration flow
 FILES_TO_BACKUP = [
     DATA / "merged_hourly.csv",
-    DATA / "aqicn_slupsk_data.csv",
+    DATA / "gios_slupsk.csv",
     DATA / "imgw_synop_hourly.csv",
     DATA / "syngeos_agg.csv",
     DATA / "features_pm10.csv",
@@ -48,14 +48,14 @@ def test_pipeline_minimal_end_to_end(tmp_path):
         OUT.mkdir(parents=True, exist_ok=True)
         MODELS.mkdir(parents=True, exist_ok=True)
 
-        # 1) prepare minimal WAQI (backtest-like) with PM10 (no PM2.5 required)
-        aqicn = (
-            "timestamp,pm10\n"
-            "2026-01-01 00:00:00,10\n"
-            "2026-01-01 01:00:00,12\n"
-            "2026-01-01 02:00:00,11\n"
+        # 1) prepare minimal GIOŚ (backtest-like) with PM10 (no PM2.5 required)
+        gios = (
+            "timestamp,station,PM2.5,PM10,NO2,O3\n"
+            "2026-01-01 00:00:00,Test,,10,,\n"
+            "2026-01-01 01:00:00,Test,,12,,\n"
+            "2026-01-01 02:00:00,Test,,11,,\n"
         )
-        (DATA / "aqicn_slupsk_data.csv").write_text(aqicn)
+        (DATA / "gios_slupsk.csv").write_text(gios)
 
         # 2) IMGW weather (matching timestamps)
         imgw = (
@@ -88,7 +88,7 @@ def test_pipeline_minimal_end_to_end(tmp_path):
         (OUT / "pm10_pred_latest.csv").write_text(pred)
 
         # --- run steps ---
-        # merge_hourly (will read aqicn + imgw + syngeos aggregate)
+        # merge_hourly (will read gios + imgw + syngeos aggregate)
         r = subprocess.run([sys.executable, "src/merge_hourly.py"], cwd=str(REPO), capture_output=True, text=True)
         assert r.returncode == 0, f"merge_hourly failed: {r.stderr}\n{r.stdout}"
         assert (DATA / "merged_hourly.csv").exists()
@@ -107,9 +107,9 @@ def test_pipeline_minimal_end_to_end(tmp_path):
         out_file = OUT / "pm10_all_latest_from_test.csv"
         r = subprocess.run([
             sys.executable, "src/merge_pm10_results.py",
-            "--backtest", str(DATA / "aqicn_slupsk_data.csv"),
+            "--backtest", str(DATA / "gios_slupsk.csv"),
             "--prediction", str(OUT / "pm10_pred_latest.csv"),
-            "--weather", str(DATA / "aqicn_slupsk_data.csv"),
+            "--weather", str(DATA / "merged_hourly.csv"),
             "--time-col", "timestamp",
             "--coalesce-hist",
             "--out", str(out_file),

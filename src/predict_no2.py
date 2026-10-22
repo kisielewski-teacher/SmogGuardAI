@@ -1,6 +1,9 @@
 
 # -*- coding: utf-8 -*-
 """
+⚠️ NIEUŻYWANE (2026-09-27) — brak modelu no2_rf.pkl, bo train_no2.py nie może się wytrenować
+(stacja GIOŚ w Słupsku nie ma czujnika NO2). Wyłączone z make_all_forecasts.py. Zob. TODO.md.
+
 Prognozowanie dla NO2
 Wejście: models/no2_rf.pkl, data/merged_hourly.csv
 Wyjście: data/forecast_no2.csv (timestamp, no2_pred)

@@ -3,7 +3,8 @@
 r"""
 make_all_forecasts.py  (wersja bez f-stringów)
 
-Jednym poleceniem uruchamia trening i prognozowanie dla: PM10, PM2.5, NO2, O3.
+Jednym poleceniem uruchamia trening i prognozowanie dla: PM10, PM2.5.
+(NO2/O3 wyłączone — brak jakiegokolwiek źródła danych dla Słupska, zob. TODO.md)
 
 Użycie (z poziomu katalogu projektu):
     py src\make_all_forecasts.py               # train + predict
@@ -24,14 +25,17 @@ DATA = ROOT / 'data'
 MODELS = ROOT / 'models'
 
 # Skrypty są w folderze src
-TRAIN_SCRIPTS = ['train_pm10.py', 'train_pm25.py', 'train_no2.py', 'train_o3.py']
-PREDICT_SCRIPTS = ['predict_pm10.py', 'predict_pm25.py', 'predict_no2.py', 'predict_o3.py']
+# NO2/O3 wyłączone (2026-09-27): stacja GIOŚ w Słupsku nie ma tych czujników i żadne inne źródło
+# (Syngeos, IMGW) też ich nie mierzy — 0 próbek, train_no2.py/train_o3.py zawsze kończą się błędem.
+# Zob. TODO.md. Skrypty zostają w src/ na wypadek, gdyby stacja kiedyś dostała te czujniki.
+TRAIN_SCRIPTS = ['train_pm10.py', 'train_pm25.py']
+PREDICT_SCRIPTS = ['predict_pm10.py', 'predict_pm25.py']
 
 # Pełne ścieżki do skryptów w src/
 TRAIN_SCRIPTS = [SRC / s for s in TRAIN_SCRIPTS]
 PREDICT_SCRIPTS = [SRC / s for s in PREDICT_SCRIPTS]
 
-FORECAST_FILES = [DATA/'forecast_pm10.csv', DATA/'forecast_pm25.csv', DATA/'forecast_no2.csv', DATA/'forecast_o3.csv']
+FORECAST_FILES = [DATA/'forecast_pm10.csv', DATA/'forecast_pm25.csv']
 MERGED_PATH = DATA / 'merged_hourly.csv'
 
 def run_cmd(cmd):
@@ -83,9 +87,9 @@ def main():
             # jeśli prognozy się powiodły — scalamy PM10 do outputs/pm10_all_latest.csv
             print('[STAGE] Scalanie wyników PM10 -> outputs/pm10_all_latest.csv')
             run_cmd([sys.executable, str(SRC / 'merge_pm10_results.py'),
-                     '--backtest', str(DATA / 'aqicn_slupsk_data.csv'),
+                     '--backtest', str(DATA / 'gios_slupsk.csv'),
                      '--prediction', str(ROOT / 'outputs' / 'pm10_pred_latest.csv'),
-                     '--weather', str(DATA / 'aqicn_slupsk_data.csv'),
+                     '--weather', str(DATA / 'merged_hourly.csv'),
                      '--time-col', 'timestamp',
                      '--coalesce-hist',
                      '--out', str(ROOT / 'outputs' / 'pm10_all_latest.csv')])
@@ -104,9 +108,9 @@ def main():
         if ok:
             print('[STAGE] Scalanie wyników PM10 -> outputs/pm10_all_latest.csv')
             run_cmd([sys.executable, str(SRC / 'merge_pm10_results.py'),
-                     '--backtest', str(DATA / 'aqicn_slupsk_data.csv'),
+                     '--backtest', str(DATA / 'gios_slupsk.csv'),
                      '--prediction', str(ROOT / 'outputs' / 'pm10_pred_latest.csv'),
-                     '--weather', str(DATA / 'aqicn_slupsk_data.csv'),
+                     '--weather', str(DATA / 'merged_hourly.csv'),
                      '--time-col', 'timestamp',
                      '--coalesce-hist',
                      '--out', str(ROOT / 'outputs' / 'pm10_all_latest.csv')])

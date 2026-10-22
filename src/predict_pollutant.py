@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
 from data_paths import (
-    DATA_DIR, MERGED_HOURLY_CSV, AQICN_HIST_CSV,
+    DATA_DIR, MERGED_HOURLY_CSV, GIOS_CSV, AQICN_HIST_CSV,
     FORECAST_PM10_CSV, FORECAST_PM25_CSV, FORECAST_NO2_CSV, FORECAST_O3_CSV,
     PM10_LATEST_CSV
 )
@@ -23,16 +23,20 @@ def sanitize_name(target: str) -> str:
     return {"PM10": "pm10", "PM2.5": "pm25", "NO2": "no2", "O3": "o3"}[target]
 
 def pick_source_csv(target: str) -> pd.DataFrame:
-    # Preferuj merged_hourly jeśli ma target; inaczej WAQI historia
+    # Preferuj merged_hourly, potem GIOŚ (główne źródło); aqicn/WAQI zostaje jako legacy fallback
     if MERGED_HOURLY_CSV.exists():
         dfm = pd.read_csv(MERGED_HOURLY_CSV)
         if target in dfm.columns:
             return dfm
+    if GIOS_CSV.exists():
+        dfg = pd.read_csv(GIOS_CSV)
+        if target in dfg.columns:
+            return dfg
     if AQICN_HIST_CSV.exists():
         dfh = pd.read_csv(AQICN_HIST_CSV)
         if target in dfh.columns:
             return dfh
-    raise FileNotFoundError(f"Brak kolumny '{target}' w {MERGED_HOURLY_CSV} i {AQICN_HIST_CSV}.")
+    raise FileNotFoundError(f"Brak kolumny '{target}' w {MERGED_HOURLY_CSV}, {GIOS_CSV} i {AQICN_HIST_CSV}.")
 
 def parse_clean(dfm: pd.DataFrame, target: str) -> pd.DataFrame:
     if "timestamp" not in dfm.columns:

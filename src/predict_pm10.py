@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 r"""
 predict_pm10.py — predykcja PM10 z cech + generowanie przyszłości (--horizon),
-z wyrównaniem startu do ostatniego pomiaru (WAQI) przez --align-to.
+z wyrównaniem startu do ostatniego pomiaru (GIOŚ) przez --align-to.
 
 Użycie:
 py src\\predict_pm10.py ^
@@ -10,7 +10,7 @@ py src\\predict_pm10.py ^
   --model models\\pm10_rf.pkl ^
   --out outputs\\pm10_pred_latest.csv ^
   --horizon 24 ^
-  --align-to data\\aqicn_slupsk_data.csv ^
+  --align-to data\\gios_slupsk.csv ^
   --verbose
 """
 
@@ -194,7 +194,7 @@ def build_parser():
     ap.add_argument("--time-col", default="timestamp", help="Kolumna czasu (domyślnie: timestamp)")
     ap.add_argument("--predict-all", action="store_true", help="Licz dla wszystkich wierszy cech")
     ap.add_argument("--horizon", type=int, default=24, help="Godziny do przodu (domyślnie 24)")
-    ap.add_argument("--align-to", default=None, help="CSV z pomiarami (np. data/aqicn_slupsk_data.csv) do wyrównania startu przyszłości")
+    ap.add_argument("--align-to", default=None, help="CSV z pomiarami (np. data/gios_slupsk.csv) do wyrównania startu przyszłości")
     ap.add_argument("--verbose", action="store_true", help="Debug wypisywany na konsolę")
     return ap
 

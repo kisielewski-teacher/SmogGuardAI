@@ -36,20 +36,23 @@ if not exist "%PROJ_DIR%\outputs" mkdir "%PROJ_DIR%\outputs"
 
 REM ==================== ETAPY PIPELINE (bez dashboardu, bez audytu horyzontu) ====================
 echo.
-echo [STEP] 1/12 — Fetch danych (WAQI / IMGW / Syngeos)
-"%PY%" "%PROJ_DIR%\src\waqi_fetch.py" --city Slupsk --out "%PROJ_DIR%\data\aqicn_slupsk_data.csv" >>"%PROJ_DIR%\logs\fetch.log" 2>&1
+echo [STEP] 1/12 — Fetch danych (GIOŚ / IMGW / Syngeos)
+"%PY%" "%PROJ_DIR%\src\gios_fetch.py" >>"%PROJ_DIR%\logs\fetch.log" 2>&1
 set "RC=%ERRORLEVEL%"
-if %RC% neq 0 echo [WARN] waqi_fetch failed
+if %RC% neq 0 echo [WARN] gios_fetch failed
 "%PY%" "%PROJ_DIR%\src\imgw_fetch.py" >>"%PROJ_DIR%\logs\fetch.log" 2>&1
 set "RC=%ERRORLEVEL%"
 if %RC% neq 0 echo [WARN] imgw_fetch failed
-"%PY%" "%PROJ_DIR%\src\syngeos_fetch.py" --devices 411,189,623 --out "%PROJ_DIR%\data\syngeos_all.csv" --aggregate "%PROJ_DIR%\data\syngeos_agg.csv" --resample H --verbose >>"%PROJ_DIR%\logs\fetch.log" 2>&1
+"%PY%" "%PROJ_DIR%\src\syngeos_fetch.py" --devices 411,189,623,425,254 --out "%PROJ_DIR%\data\syngeos_all.csv" --aggregate "%PROJ_DIR%\data\syngeos_agg.csv" --resample H --verbose >>"%PROJ_DIR%\logs\fetch.log" 2>&1
 set "RC=%ERRORLEVEL%"
 if %RC% neq 0 echo [WARN] syngeos_fetch failed
+"%PY%" "%PROJ_DIR%\src\imgw_historical_backfill.py" --auto >>"%PROJ_DIR%\logs\fetch.log" 2>&1
+set "RC=%ERRORLEVEL%"
+if %RC% neq 0 echo [WARN] imgw_historical_backfill failed
 
 echo.
 echo [STEP] 2/12 — Scalanie danych godzinowych (merge_hourly)
-"%PY%" "%PROJ_DIR%\src\merge_hourly.py" --waqi "%PROJ_DIR%\data\aqicn_slupsk_data.csv" --imgw "%PROJ_DIR%\data\imgw_slupsk_hourly.csv" --out "%PROJ_DIR%\data\merged_hourly.csv" --tolerance 1h --on_bad_lines skip >>"%PROJ_DIR%\logs\merge_hourly.log" 2>&1
+"%PY%" "%PROJ_DIR%\src\merge_hourly.py" >>"%PROJ_DIR%\logs\merge_hourly.log" 2>&1
 set "RC=%ERRORLEVEL%"
 if %RC% neq 0 echo [WARN] merge_hourly failed
 
@@ -79,7 +82,7 @@ if %RC% neq 0 echo [WARN] train_pm25_rf failed (albo za malo danych)
 
 echo.
 echo [STEP] 7/12 — Predykcja PM10 (horyzont 72h)
-"%PY%" "%PROJ_DIR%\src\predict_pm10.py" --features "%PROJ_DIR%\data\merged_hourly.csv" --model "%PROJ_DIR%\models\pm10_pipeline.pkl" --out "%PROJ_DIR%\outputs\pm10_pred_latest.csv" --horizon 72 --align-to "%PROJ_DIR%\data\aqicn_slupsk_data.csv" --verbose >>"%PROJ_DIR%\logs\predict.log" 2>&1
+"%PY%" "%PROJ_DIR%\src\predict_pm10.py" --features "%PROJ_DIR%\data\merged_hourly.csv" --model "%PROJ_DIR%\models\pm10_pipeline.pkl" --out "%PROJ_DIR%\outputs\pm10_pred_latest.csv" --horizon 72 --align-to "%PROJ_DIR%\data\gios_slupsk.csv" --verbose >>"%PROJ_DIR%\logs\predict.log" 2>&1
 set "RC=%ERRORLEVEL%"
 if %RC% neq 0 echo [WARN] predict_pm10 failed
 
@@ -128,7 +131,7 @@ if defined PRED_FILE (echo [INFO] PM10 prediction file: %PRED_FILE%) else (echo 
 echo.
 if defined BACKTEST_FILE if defined PRED_FILE (
   echo [STEP] 11/12 — Scalanie wynikow PM10+PM2.5 do outputs\*_all_latest.csv
-  "%PY%" "%PROJ_DIR%\src\merge_pm10_results.py" --pollutant pm10 --backtest "%PROJ_DIR%\outputs\%BACKTEST_FILE%" --prediction "%PROJ_DIR%\outputs\%PRED_FILE%" --weather "%PROJ_DIR%\data\aqicn_slupsk_data.csv" --time-col timestamp --coalesce-hist --out "%PROJ_DIR%\outputs\pm10_all_latest.csv" >>"%PROJ_DIR%\logs\merge_results.log" 2>&1
+  "%PY%" "%PROJ_DIR%\src\merge_pm10_results.py" --pollutant pm10 --backtest "%PROJ_DIR%\outputs\%BACKTEST_FILE%" --prediction "%PROJ_DIR%\outputs\%PRED_FILE%" --weather "%PROJ_DIR%\data\merged_hourly.csv" --time-col timestamp --coalesce-hist --out "%PROJ_DIR%\outputs\pm10_all_latest.csv" >>"%PROJ_DIR%\logs\merge_results.log" 2>&1
   set "RC=%ERRORLEVEL%"
   if %RC% neq 0 echo [WARN] merge_pm10_results failed
 ) else (

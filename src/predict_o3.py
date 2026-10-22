@@ -1,6 +1,9 @@
 
 # -*- coding: utf-8 -*-
 """
+⚠️ NIEUŻYWANE (2026-09-27) — brak modelu o3_rf.pkl, bo train_o3.py nie może się wytrenować
+(stacja GIOŚ w Słupsku nie ma czujnika O3). Wyłączone z make_all_forecasts.py. Zob. TODO.md.
+
 Prognozowanie dla O3
 Wejście: models/o3_rf.pkl, data/merged_hourly.csv
 Wyjście: data/forecast_o3.csv (timestamp, o3_pred)

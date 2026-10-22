@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
 """
+⚠️ DEPRECATED (2026-09) — darmowy poziom Open-Meteo jest licencjonowany
+wyłącznie na użycie niekomercyjne (zob. TODO.md, sekcja "blokery sprzedaży").
+Ten skrypt NIE jest już wywoływany przez run_full_pipeline.bat /
+run_pipeline_scheduled.bat / run_hourly.bat. build_merged_full.py buduje
+siatkę godzin samodzielnie (GIOŚ ∪ IMGW) i uzupełnia krótkie luki pogodowe
+interpolacją zamiast Open-Meteo. Plik zostaje w repo wyłącznie dla zgodności
+z istniejącymi testami regresyjnymi (tests/test_bugfixes.py) — nie uruchamiaj
+go w nowych wdrożeniach bez wykupienia licencji komercyjnej Open-Meteo.
+
 openmeteo_backfill.py — uzupełnia luki w danych pogodowych z Open-Meteo (darmowe, bez klucza).
 
 Strategia:

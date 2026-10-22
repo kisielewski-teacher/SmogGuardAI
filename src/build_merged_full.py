@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-build_merged_full.py — tworzy kompletny godzinowy dataset merged_hourly_full.csv.
+build_merged_full.py — tworzy kompletny godzinowy dataset merged_hourly.csv.
 
-Strategia:
-- Baza: pełna siatka godzin z Open-Meteo (imgw_synop_hourly.csv, stacja=OpenMeteo-Slupsk)
-- PM10: z aqicn_slupsk_data.csv (match nearest 1h)
-- PM25: z syngeos_agg.csv (match nearest 1h)
-- Kolumny pogodowe: bezpośrednio z Open-Meteo
+Od refaktoryzacji licencyjnej (2026-09):
+- Baza (oś czasu): siatka godzin zbudowana z realnych timestampów GIOŚ ∪ IMGW
+  (bez zależności od płatnej/niekomercyjnej siatki Open-Meteo).
+- PM10 / PM2.5 / NO2 / O3: z gios_slupsk.csv (match nearest 1h) — GIOŚ jest
+  głównym źródłem pomiarów zanieczyszczeń.
+- PM2.5 (uzupełniająco): z syngeos_agg.csv, tam gdzie brak GIOŚ.
+- Kolumny pogodowe: z imgw_synop_hourly.csv (match nearest 1h); krótkie luki
+  (do 6h) są interpolowane liniowo, bo nie ma już Open-Meteo do wypełniania.
 
 Wyjście: data/merged_hourly.csv (zastępuje plik — ten plik jest wejściem do features.py)
 """
@@ -30,6 +33,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("build_merged")
 
+WEATHER_COLS = ["temperatura", "predkosc_wiatru", "wilgotnosc_wzgledna", "suma_opadu", "cisnienie"]
+POLLUTANT_COLS = ["PM10", "PM2.5", "NO2", "O3"]
+
 
 def _parse_ts(s):
     try:
@@ -51,82 +57,75 @@ def read_ts(path: Path) -> pd.DataFrame:
 
 def main():
     imgw_path = DATA / "imgw_synop_hourly.csv"
-    waqi_path = DATA / "aqicn_slupsk_data.csv"
+    gios_path = DATA / "gios_slupsk.csv"
     syngeos_path = DATA / "syngeos_agg.csv"
     out_path = DATA / "merged_hourly.csv"
 
-    # --- Baza: Open-Meteo godziny (stacja OpenMeteo-Slupsk) ---
     imgw = read_ts(imgw_path)
-    om = imgw[imgw["stacja"] == "OpenMeteo-Slupsk"].copy()
-    if om.empty:
-        logger.error("Brak danych OpenMeteo-Slupsk w imgw_synop_hourly.csv — uruchom openmeteo_backfill.py")
+    gios = read_ts(gios_path).sort_values("timestamp") if gios_path.exists() else pd.DataFrame()
+
+    if gios.empty and imgw.empty:
+        logger.error("Brak danych GIOŚ i IMGW — uruchom najpierw gios_real_backfill.py / imgw_fetch.py")
         return
 
-    om = om.sort_values("timestamp").drop_duplicates("timestamp")
-    logger.info(f"Baza Open-Meteo: {len(om)} godzin ({om['timestamp'].min()} – {om['timestamp'].max()})")
+    # --- Baza: siatka pełnych godzin z realnego zakresu GIOŚ ∪ IMGW (bez Open-Meteo) ---
+    ts_candidates = [df["timestamp"] for df in (imgw, gios) if not df.empty]
+    ts_min = min(s.min() for s in ts_candidates)
+    ts_max = max(s.max() for s in ts_candidates)
+    base = pd.DataFrame({"timestamp": pd.date_range(ts_min.floor("h"), ts_max.ceil("h"), freq="h")})
+    logger.info(f"Baza (GIOŚ ∪ IMGW): {len(base)} godzin ({ts_min} – {ts_max})")
 
-    # Rename do standardowych nazw w merged
-    base = om[["timestamp", "temperatura", "predkosc_wiatru", "wilgotnosc_wzgledna", "suma_opadu", "cisnienie"]].copy()
-    base.rename(columns={
-        "temperatura": "temperatura_y",
-        "predkosc_wiatru": "predkosc_wiatru_y",
-        "wilgotnosc_wzgledna": "wilgotnosc_wzgledna_y",
-        "cisnienie": "cisnienie_y",
-    }, inplace=True)
+    merged = base.copy()
 
-    # --- PM10 z WAQI (merge_asof nearest 1h) ---
-    waqi = read_ts(waqi_path).sort_values("timestamp")
-    if not waqi.empty:
-        waqi_pm = waqi[["timestamp", "PM10", "aqi",
-                         "temperatura", "wilgotnosc_wzgledna", "cisnienie", "predkosc_wiatru"]].copy()
-        waqi_pm.rename(columns={
-            "PM10": "PM10_x",
-            "temperatura": "temperatura_x",
-            "wilgotnosc_wzgledna": "wilgotnosc_wzgledna_x",
-            "cisnienie": "cisnienie_x",
-            "predkosc_wiatru": "predkosc_wiatru_x",
-        }, inplace=True)
+    # --- Pogoda z IMGW (nearest, tolerancja 1h) ---
+    if not imgw.empty:
+        imgw_cols = [c for c in WEATHER_COLS if c in imgw.columns]
+        imgw_w = imgw[["timestamp"] + imgw_cols].sort_values("timestamp").drop_duplicates("timestamp")
         merged = pd.merge_asof(
-            base.sort_values("timestamp"),
-            waqi_pm.sort_values("timestamp"),
+            merged.sort_values("timestamp"), imgw_w,
             on="timestamp", direction="nearest", tolerance=pd.Timedelta("1h")
         )
-        logger.info(f"Po złączeniu z WAQI: {merged['PM10_x'].notna().sum()} godzin z PM10")
+        # Krótkie luki (do 6h) interpolujemy liniowo — nie ma już Open-Meteo do wypełniania.
+        for col in imgw_cols:
+            merged[col] = pd.to_numeric(merged[col], errors="coerce").interpolate(method="linear", limit=6)
+        logger.info(f"Pogoda z IMGW: {merged[imgw_cols[0]].notna().sum() if imgw_cols else 0} godzin uzupełnionych")
     else:
-        merged = base.copy()
-        logger.warning("Brak danych WAQI")
+        logger.warning("Brak danych IMGW — kolumny pogodowe będą puste")
 
-    # Stwórz kanoniczną kolumnę PM10 (priorytet: WAQI)
-    merged["PM10"] = pd.to_numeric(merged.get("PM10_x"), errors="coerce")
+    # --- Zanieczyszczenia z GIOŚ (nearest, tolerancja 1h) ---
+    if not gios.empty:
+        gios_cols = [c for c in POLLUTANT_COLS if c in gios.columns]
+        gios_p = gios[["timestamp"] + gios_cols].sort_values("timestamp").drop_duplicates("timestamp")
+        merged = pd.merge_asof(
+            merged.sort_values("timestamp"), gios_p,
+            on="timestamp", direction="nearest", tolerance=pd.Timedelta("1h")
+        )
+        logger.info(f"Po złączeniu z GIOŚ: {merged['PM10'].notna().sum() if 'PM10' in merged.columns else 0} godzin z PM10")
+    else:
+        logger.warning("Brak danych GIOŚ")
 
-    # Uzupełnij pogodę: gdzie brak WAQI, użyj Open-Meteo
-    for col_x, col_y in [
-        ("temperatura_x", "temperatura_y"),
-        ("wilgotnosc_wzgledna_x", "wilgotnosc_wzgledna_y"),
-        ("cisnienie_x", "cisnienie_y"),
-        ("predkosc_wiatru_x", "predkosc_wiatru_y"),
-    ]:
-        if col_x not in merged.columns:
-            merged[col_x] = merged[col_y]
-        else:
-            merged[col_x] = merged[col_x].fillna(merged[col_y])
+    for col in POLLUTANT_COLS:
+        if col not in merged.columns:
+            merged[col] = pd.NA
+        merged[col] = pd.to_numeric(merged[col], errors="coerce")
 
-    # --- PM25 z Syngeos (merge_asof nearest 1h) ---
+    # --- PM2.5 (uzupełniająco) z Syngeos, tam gdzie brak GIOŚ ---
     sg = read_ts(syngeos_path)
     if not sg.empty and "timestamp" in sg.columns:
         sg = sg.sort_values("timestamp")
-        pm25_cols = [c for c in ["pm25_mean", "pm25_median", "pm10_mean", "pm10_median"] if c in sg.columns]
-        merged = pd.merge_asof(
-            merged.sort_values("timestamp"),
-            sg[["timestamp"] + pm25_cols].sort_values("timestamp"),
-            on="timestamp", direction="nearest", tolerance=pd.Timedelta("1h")
-        )
-        # Uzupełnij PM10 z syngeos gdzie brak WAQI
-        if "pm10_mean" in merged.columns:
-            merged["PM10"] = merged["PM10"].fillna(pd.to_numeric(merged["pm10_mean"], errors="coerce"))
-        logger.info(f"Po złączeniu z Syngeos: {merged['PM10'].notna().sum()} godzin z PM10")
+        pm_cols = [c for c in ["pm25_mean", "pm25_median", "pm10_mean", "pm10_median"] if c in sg.columns]
+        if pm_cols:
+            merged = pd.merge_asof(
+                merged.sort_values("timestamp"),
+                sg[["timestamp"] + pm_cols].sort_values("timestamp"),
+                on="timestamp", direction="nearest", tolerance=pd.Timedelta("1h")
+            )
+            if "pm25_mean" in merged.columns:
+                merged["PM2.5"] = merged["PM2.5"].fillna(pd.to_numeric(merged["pm25_mean"], errors="coerce"))
+            if "pm10_mean" in merged.columns:
+                merged["PM10"] = merged["PM10"].fillna(pd.to_numeric(merged["pm10_mean"], errors="coerce"))
+            logger.info("Dołączono Syngeos: uzupełniono PM2.5/PM10 tam, gdzie brakowało pomiarów GIOŚ")
 
-    # Zachowaj kompatybilność z merge_hourly.csv (kolumna PM10 jako ostatnia)
     merged = merged.sort_values("timestamp").reset_index(drop=True)
     merged.to_csv(out_path, index=False)
     logger.info(

@@ -36,7 +36,7 @@ def main(hours=24, copy_last=False, sep=",", encoding="utf-8"):
         # pobierz kilka urządzeń Syngeos i zapisz agregat godzinowy (pm2.5/pm10)
         run([
             sys.executable, "src\\syngeos_fetch.py",
-            "--devices", "411,189,623",
+            "--devices", "411,189,623,425,254",
             "--out", "data\\syngeos_all.csv",
             "--aggregate", "data\\syngeos_agg.csv",
             "--resample", "H",
@@ -67,7 +67,7 @@ def main(hours=24, copy_last=False, sep=",", encoding="utf-8"):
         "--out", "outputs\\pm10_pred_latest.csv",
         "--time-col", "timestamp",
         "--horizon", str(hours),
-        "--align-to", "data\\aqicn_slupsk_data.csv",
+        "--align-to", "data\\gios_slupsk.csv",
         "--verbose",
     ])
 
@@ -152,8 +152,8 @@ def main(hours=24, copy_last=False, sep=",", encoding="utf-8"):
     if not pred_path or not back_path:
         raise RuntimeError("Brak plików do scalenia. Sprawdź outputs\\pm10_pred_* i outputs\\pm10_backtest_*.")
     out_path = os.path.join(ROOT, "outputs", "pm10_all_latest.csv")
-    # wybierz plik pogodowy (WAQI) — preferuj aqicn_slupsk_data.csv, fallback na merged_hourly
-    weather_candidate = "data\\aqicn_slupsk_data.csv" if os.path.exists(os.path.join(ROOT, "data", "aqicn_slupsk_data.csv")) else "data\\merged_hourly.csv"
+    # plik pogodowy: merged_hourly.csv (GIOŚ + IMGW, budowany przez merge_hourly.py/build_merged_full.py)
+    weather_candidate = "data\\merged_hourly.csv"
     run([
         sys.executable, "src\\merge_pm10_results.py",
         "--backtest", back_path,

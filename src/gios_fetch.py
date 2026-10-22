@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Prosty fetcher GIOS dla Słupska — zapisuje ostatnie godziny pomiarów (PM10, PM2.5, NO2, O3)
-Wyjście: data/gios_slupsk.csv (timestamp, PM10, PM2.5, NO2, O3, station)
+Fetcher GIOS dla Słupska — zapisuje bieżące godziny pomiarów (PM10, PM2.5, NO2, O3).
+Wyjście: data/gios_slupsk.csv (timestamp, station, PM2.5, PM10, NO2, O3)
+
+Od refaktoryzacji licencyjnej (2026-09) GIOŚ jest GŁÓWNYM źródłem pomiarów
+zanieczyszczeń w pipeline (zamiast WAQI) — dane publiczne, komercyjnie
+reużywalne pod warunkiem podania źródła. Pełną historię buduje/uzupełnia
+gios_real_backfill.py; ten skrypt dopisuje tylko bieżącą godzinę (uruchamiany
+cyklicznie, np. co godzinę z run_hourly.bat).
 """
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -11,6 +17,7 @@ import pandas as pd
 
 API_BASE = "https://api.gios.gov.pl/pjp-api/v1/rest"
 OUT = Path(__file__).resolve().parents[1] / "data" / "gios_slupsk.csv"
+OUT.parent.mkdir(parents=True, exist_ok=True)
 
 # Coordinates for Słupsk (approx)
 SLUPSK_LAT = 54.4639
@@ -192,6 +199,17 @@ def _pick_values(sensors):
     return out
 
 
+CANONICAL_COLUMNS = ["timestamp", "station", "PM2.5", "PM10", "NO2", "O3"]
+
+
+def _last_saved_ts(path: Path):
+    try:
+        last = pd.read_csv(path, usecols=["timestamp"]).iloc[-1]["timestamp"]
+        return pd.to_datetime(last)
+    except Exception:
+        return None
+
+
 def main():
     try:
         st = _nearest_station()
@@ -210,12 +228,27 @@ def main():
         row = {"timestamp": now, "station": station_name}
         for k in TARGET_CODES:
             row[k] = vals.get(k)
-
         df_row = pd.DataFrame([row])
+
+        if OUT.exists() and _last_saved_ts(OUT) == now:
+            print(f"[INFO] Duplikat timestamp {now} — pomijam zapis.")
+            return
+
+        # Wyrównaj kolumny do nagłówka pliku (albo kolejności kanonicznej dla nowego pliku)
+        # PRZED zapisem — inaczej dopisanie z inną kolejnością kolumn po cichu przestawia
+        # wartości między kolumnami (patrz analogiczny komentarz w waqi_fetch.py).
         if OUT.exists():
-            df_row.to_csv(OUT, mode="a", header=False, index=False)
+            target_columns = pd.read_csv(OUT, nrows=0).columns.tolist()
         else:
-            df_row.to_csv(OUT, index=False)
+            target_columns = CANONICAL_COLUMNS
+        for col in target_columns:
+            if col not in df_row.columns:
+                df_row[col] = pd.NA
+        df_row = df_row[target_columns]
+
+        mode = "a" if OUT.exists() else "w"
+        header = not OUT.exists()
+        df_row.to_csv(OUT, mode=mode, header=header, index=False)
         print(f"[OK] Zapisano wiersz GIOS: {OUT}")
     except Exception as e:
         print(f"[ERR] GIOS fetch error: {e}")

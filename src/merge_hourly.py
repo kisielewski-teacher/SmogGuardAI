@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-merge_hourly.py — odporna wersja scalania danych WAQI + IMGW
+merge_hourly.py — odporna wersja scalania danych GIOŚ (pomiary) + IMGW (pogoda)
+
+Od refaktoryzacji licencyjnej (2026-09) GIOŚ jest kotwicą/oś czasu scalania
+(zamiast WAQI) — dane publiczne, komercyjnie reużywalne pod warunkiem podania
+źródła. aqicn_slupsk_data.csv (WAQI) nie jest już aktywnie używany.
 
 Funkcje:
 - Wczytanie CSV z wykryciem separatora ("," lub ";").
@@ -23,9 +27,8 @@ DATA_DIR = BASE_DIR / "data"
 LOGS_DIR = BASE_DIR / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 
-waqi_path = DATA_DIR / "aqicn_slupsk_data.csv"
-imgw_path = DATA_DIR / "imgw_synop_hourly.csv"
 gios_path = DATA_DIR / "gios_slupsk.csv"
+imgw_path = DATA_DIR / "imgw_synop_hourly.csv"
 out_path  = DATA_DIR / "merged_hourly.csv"
 
 # --- Logowanie ---
@@ -106,51 +109,39 @@ def _normalize_time_tz(df: pd.DataFrame) -> pd.DataFrame:
 
 # --- Główna logika ---
 def main():
-    w = _read_csv_robust(waqi_path)
+    g = _read_csv_robust(gios_path)
     i = _read_csv_robust(imgw_path)
 
-    if w.empty:
-        logger.warning("Brak danych WAQI — zatrzymuję scalanie.")
+    if g.empty:
+        logger.warning("Brak danych GIOŚ — zatrzymuję scalanie.")
         return
     if i.empty:
-        logger.warning("Brak danych IMGW — zapisuję tylko WAQI.")
-        w.to_csv(out_path, index=False)
+        logger.warning("Brak danych IMGW — zapisuję tylko GIOŚ.")
+        g.to_csv(out_path, index=False)
         return
 
     # Czyszczenie NaT i sortowanie
-    before_w, before_i = len(w), len(i)
-    w = w.dropna(subset=["timestamp"]).sort_values("timestamp")
+    before_g, before_i = len(g), len(i)
+    g = g.dropna(subset=["timestamp"]).sort_values("timestamp")
     i = i.dropna(subset=["timestamp"]).sort_values("timestamp")
-    logger.info(f"Drop NaT: WAQI {before_w - len(w)} usuniętych, IMGW {before_i - len(i)} usuniętych")
+    logger.info(f"Drop NaT: GIOŚ {before_g - len(g)} usuniętych, IMGW {before_i - len(i)} usuniętych")
 
     # Ujednolicenie czasu
-    w = _normalize_time_tz(w)
+    g = _normalize_time_tz(g)
     i = _normalize_time_tz(i)
 
-    if w.empty or i.empty:
-        logger.warning("Po czyszczeniu brak danych do scalania — zapisuję WAQI.")
-        w.to_csv(out_path, index=False)
+    if g.empty or i.empty:
+        logger.warning("Po czyszczeniu brak danych do scalania — zapisuję GIOŚ.")
+        g.to_csv(out_path, index=False)
         return
 
-    # Scalanie asof z tolerancją 1h
+    # Scalanie asof z tolerancją 1h (GIOŚ = pomiary zanieczyszczeń, IMGW = pogoda)
     merged = pd.merge_asof(
-        w, i,
+        g, i,
         on="timestamp",
         direction="backward",
         tolerance=pd.Timedelta("1h")
     )
-
-    # Jeśli mamy dane GIOS (PM2.5/PM10 itp.), dołącz je (nearest, tol=1h)
-    if gios_path.exists():
-        g = _read_csv_robust(gios_path)
-        if not g.empty and "timestamp" in g.columns:
-            g = g.dropna(subset=["timestamp"]).sort_values("timestamp")
-            g = _normalize_time_tz(g)
-            merged = pd.merge_asof(
-                merged.sort_values("timestamp"),
-                g.sort_values("timestamp"),
-                on="timestamp", direction="nearest", tolerance=pd.Timedelta("1h")
-            )
 
     # Dołącz dane Airly (jeśli istnieją)
     airly_path = DATA_DIR / 'airly_slupsk.csv'

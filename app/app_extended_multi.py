@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 SmogGuardAI — Dashboard PRO
-- Historia PM10 (WAQI)
+- Historia PM10 (GIOŚ)
 - Prognoza PM10 z outputs/pm10_all_latest.csv (24h horyzont w widoku)
 - Twardy cutoff historia/przyszłość liczony z faktycznego ostatniego POMIARU
 - Wykresy schodkowe (step-after)
@@ -33,7 +33,7 @@ except Exception:
 
 DATA = BASE / "data"
 OUTPUT = BASE / "outputs"
-HIST = DATA / "aqicn_slupsk_data.csv"
+HIST = DATA / "gios_slupsk.csv"
 MERGED = DATA / "merged_hourly.csv"
 FORECAST = OUTPUT / "pm10_all_latest.csv"  # KLUCZOWY PLIK dla wykresu prognozy
 FORECAST_PM25 = OUTPUT / "pm25_all_latest.csv"
@@ -331,7 +331,11 @@ hist = normalize(load_csv(HIST, ["timestamp"]))
 merged = normalize(load_csv(MERGED, ["timestamp"]))
 forecast = normalize(load_csv(FORECAST, ["timestamp"]))
 
-# PM2.5 tymczasowo ukryte — tylko PM10
+# PM2.5 tymczasowo ukryte — tylko PM10.
+# NIE włączaj bez ponownej weryfikacji jakości: model PM2.5 (models/pm25_pipeline.pkl) ma
+# R² = -22 (2026-09-27) — tylko 15 prawdziwych par pomiarowych Syngeos+GIOŚ na 6419+ wierszy,
+# reszta to szacunki sezonowym współczynnikiem PM2.5/PM10 (estimate_pm25_from_pm10.py).
+# Pokazanie tego jako "prognozę" klientowi byłoby wprowadzające w błąd — zob. TODO.md.
 show_pm25 = False
 fc_pollutant = "PM10"
 
@@ -340,7 +344,7 @@ with st.sidebar:
     st.header("Filtry")
     days = st.slider("Okres (dni)", 1, 120, 45)
     smooth = st.selectbox("Wygładzanie (rolling h)", [0, 6, 12, 24], index=2)
-    meas_src = st.radio("Źródło PM10 (do porównania)", ["historia WAQI", "merged WAQI+IMGW"], index=0)
+    meas_src = st.radio("Źródło PM10 (do porównania)", ["historia GIOŚ", "merged GIOŚ+IMGW"], index=0)
     horizon_h = st.number_input("Horyzont prognozy (godziny do przodu)", min_value=1, max_value=72, value=72)
     auto_refresh = st.checkbox("Auto-odśwież co 30 sek", False)
     refresh = st.button("Odśwież dane teraz")
@@ -366,7 +370,7 @@ for df_ in [hist_f, merged_f]:
 
 # --- wspólne: ostatni PRAWDZIWY pomiar (liczony z pomiaru, nie z prognozy) ---
 def compute_last_meas_timestamp() -> pd.Timestamp | None:
-    src = hist_f if meas_src == "historia WAQI" else merged_f
+    src = hist_f if meas_src == "historia GIOŚ" else merged_f
     if src.empty or "timestamp" not in src.columns or "pm10" not in src.columns:
         return None
     s = src["timestamp"][src["pm10"].notna()]
@@ -375,7 +379,7 @@ def compute_last_meas_timestamp() -> pd.Timestamp | None:
 last_meas_ts = compute_last_meas_timestamp()
 
 def last_meas_value() -> float | None:
-    src = hist_f if meas_src == "historia WAQI" else merged_f
+    src = hist_f if meas_src == "historia GIOŚ" else merged_f
     if src.empty or "pm10" not in src.columns or last_meas_ts is None:
         return None
     row = src[src["timestamp"] == last_meas_ts]
@@ -421,9 +425,9 @@ st.markdown("")
 badge_col1, badge_col2 = st.columns([2, 1])
 with badge_col1:
     st.success(
-        "✅ **Dane rzeczywiste i zweryfikowane** — PM10: oficjalne archiwum GIOŚ "
-        "(stacja Słupsk, ul. Kniaziewicza, [powietrze.gios.gov.pl](https://powietrze.gios.gov.pl)) "
-        "+ WAQI. Pogoda: IMGW (stacje synoptyczne) + Open-Meteo (dane archiwalne/prognoza). "
+        "✅ **Dane rzeczywiste i zweryfikowane** — Źródło danych: GIOŚ – EKOINFONET "
+        "(stacja Słupsk, ul. Kniaziewicza, [powietrze.gios.gov.pl](https://powietrze.gios.gov.pl)). "
+        "Pogoda: IMGW-PIB (stacje synoptyczne, [danepubliczne.imgw.pl](https://danepubliczne.imgw.pl)). "
         "Żadna wartość w bieżącym modelu nie jest danymi syntetycznymi.",
         icon="✅",
     )
@@ -443,8 +447,8 @@ with st.expander("ℹ️ O projekcie — metodologia (dla komisji konkursowej)",
     st.markdown(
         """
 **Źródła danych (wszystkie rzeczywiste, publicznie weryfikowalne):**
-- **PM10** — [GIOŚ](https://powietrze.gios.gov.pl) (Główny Inspektorat Ochrony Środowiska), archiwum stacji Słupsk ul. Kniaziewicza, uzupełnione danymi WAQI.
-- **PM2.5** — prywatne czujniki **Syngeos** w okolicy Słupska (WAQI dla Słupska nie raportuje PM2.5). Zbieranie
+- **PM10 / NO2 / O3** — Źródło danych: GIOŚ – EKOINFONET ([powietrze.gios.gov.pl](https://powietrze.gios.gov.pl)), archiwum stacji Słupsk ul. Kniaziewicza.
+- **PM2.5** — GIOŚ (jeśli stacja raportuje), uzupełniająco prywatne czujniki **Syngeos** w okolicy Słupska. Zbieranie
   danych trwa od niedawna — model PM2.5 uruchomi się automatycznie, gdy uzbiera się min. 72h historii
   (patrz zakładka **"PM2.5"**).
 - **Pogoda** — [IMGW](https://danepubliczne.imgw.pl) (stacje synoptyczne) oraz [Open-Meteo](https://open-meteo.com) (archiwum + prognoza godzinowa).
@@ -473,12 +477,12 @@ tab_hist, tab_compare, tab_future, tab_pm25, tab_accuracy, tab_norms, tab_weathe
     "PM2.5",
     "Dokładność prognozy",
     "Normy PL vs WHO",
-    "Pogoda (WAQI)"
+    "Pogoda (IMGW)"
 ])
 
 # --- Tab 1: Historia PM ---
 with tab_hist:
-    st.subheader("Historia PM10 (WAQI)")
+    st.subheader("Historia PM10 (GIOŚ)")
 
     if hist_f.empty:
         st.info("Brak danych historycznych")
@@ -522,7 +526,7 @@ with tab_compare:
     if forecast_f.empty or "pm10_pred" not in forecast_f.columns:
         st.info("Brak danych prognozy w pm10_all_latest.csv")
     else:
-        meas = hist_f if meas_src == "historia WAQI" else merged_f
+        meas = hist_f if meas_src == "historia GIOŚ" else merged_f
         meas = meas[["timestamp", "pm10"]].dropna().sort_values("timestamp")
         fc = forecast_f.sort_values("timestamp")
 
@@ -672,7 +676,7 @@ with tab_pm25:
     st.subheader("🟣 PM2.5 — pył drobny (ta sama architektura modelu co PM10)")
     st.caption(
         "Źródło: prywatne czujniki **Syngeos** w okolicy Słupska (urządzenia 411/189/623) — "
-        "WAQI dla Słupska nie raportuje PM2.5, więc to jedyne dostępne realne źródło lokalne."
+        "stacja GIOŚ w Słupsku nie zawsze raportuje PM2.5, więc to uzupełniające realne źródło lokalne."
     )
 
     pm25_forecast = normalize(load_csv(FORECAST_PM25, ["timestamp"]))
@@ -968,25 +972,16 @@ with tab_norms:
         "porównanie ze średnią roczną ma charakter orientacyjny, nie jest formalnym rozliczeniem normy."
     )
 
-# --- Tab 4: POGODA (WAQI / Open-Meteo) ---
+# --- Tab 4: POGODA (IMGW) ---
 with tab_weather:
     st.subheader("Pogoda — temperatura / wilgotność / ciśnienie / wiatr")
 
-    # Użyj merged (Open-Meteo) jeśli WAQI ma za mało danych w oknie
-    _waqi_weather_ok = (
-        not hist_f.empty
-        and "temp" in hist_f.columns
-        and hist_f["temp"].notna().sum() >= 24
-    )
-    if _waqi_weather_ok:
-        dfw = hist_f
-        _weather_src = "WAQI"
-    else:
-        dfw = merged_f
-        _weather_src = "Open-Meteo (merged)"
+    # Pogoda pochodzi z IMGW (przez merged_hourly.csv — merge_hourly.py / build_merged_full.py)
+    dfw = merged_f
+    _weather_src = "IMGW"
 
     if dfw.empty:
-        st.warning("Brak danych pogodowych. Uruchom `run_hourly.bat` lub `openmeteo_backfill.py`.")
+        st.warning("Brak danych pogodowych. Uruchom `run_hourly.bat` (imgw_fetch.py + merge_hourly.py).")
     else:
         n_pts = len(dfw[dfw["temp"].notna()]) if "temp" in dfw.columns else 0
         if n_pts < 24:
