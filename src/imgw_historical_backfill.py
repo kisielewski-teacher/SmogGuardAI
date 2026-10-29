@@ -6,7 +6,7 @@ zamiast syntetycznych danych Open-Meteo (usuniętych w refaktorze licencyjnym 20
 
 Źródło: pliki ZIP per miesiąc, np.
   https://danepubliczne.imgw.pl/.../terminowe/synop/2026/2026_08_s.zip
-Format i mapowanie kolumn zweryfikowane ręcznie (patrz TODO.md): TEMP->temperatura,
+Format i mapowanie kolumn zweryfikowane ręcznie (patrz ToDo.md): TEMP->temperatura,
 FWR->predkosc_wiatru, WLGW->wilgotnosc_wzgledna, PPPM->cisnienie (ciśnienie na
 poziomie morza — dokładnie zgodne z wartościami zwracanymi przez żywe API IMGW),
 WO6G->suma_opadu (UWAGA: to opad skumulowany za 6h, nie godzinowy — najlepszy
@@ -71,6 +71,30 @@ def month_range(start_year: int, start_month: int):
             y += 1
 
 
+def _parse_synop(df: pd.DataFrame) -> pd.DataFrame:
+    """Wspolne parsowanie surowych wierszy synop IMGW (plik miesieczny lub roczny stacji)."""
+    # w 2024 IMGW zapisuje nazwy stacji dopelnione spacjami ("KOSZALIN      ")
+    df = df.assign(POST=df["POST"].astype(str).str.strip())
+    df = df[df["POST"].isin(STATIONS)].copy()
+    if df.empty:
+        return df
+    df["stacja"] = df["POST"].map(STATIONS)
+    df["timestamp"] = pd.to_datetime(
+        dict(year=df["ROK"], month=df["MC"], day=df["DZ"], hour=df["GG"]),
+        errors="coerce",
+    )
+    df["temperatura"] = pd.to_numeric(df["TEMP"], errors="coerce")
+    df["predkosc_wiatru"] = pd.to_numeric(df["FWR"], errors="coerce")
+    # kierunek wiatru w stopniach (0-360); przy ciszy (predkosc 0) kierunek jest bez znaczenia
+    df["kierunek_wiatru"] = pd.to_numeric(df["KRWR"], errors="coerce")
+    df["wilgotnosc_wzgledna"] = pd.to_numeric(df["WLGW"], errors="coerce")
+    df["suma_opadu"] = pd.to_numeric(df["WO6G"], errors="coerce")
+    df["cisnienie"] = pd.to_numeric(df["PPPM"], errors="coerce")
+    out = df[["stacja", "timestamp", "temperatura", "predkosc_wiatru", "kierunek_wiatru",
+              "wilgotnosc_wzgledna", "suma_opadu", "cisnienie"]].dropna(subset=["timestamp"])
+    return out
+
+
 def fetch_month(year: int, month: int) -> pd.DataFrame:
     url = ARCHIVE_URL.format(year=year, month=month)
     r = requests.get(url, timeout=60)
@@ -85,23 +109,46 @@ def fetch_month(year: int, month: int) -> pd.DataFrame:
     name = zf.namelist()[0]
     with zf.open(name) as fh:
         df = pd.read_csv(fh, header=None, names=COLUMNS, encoding="cp1250", low_memory=False)
-    df = df[df["POST"].isin(STATIONS)].copy()
-    if df.empty:
-        return df
-    df["stacja"] = df["POST"].map(STATIONS)
-    df["timestamp"] = pd.to_datetime(
-        dict(year=df["ROK"], month=df["MC"], day=df["DZ"], hour=df["GG"]),
-        errors="coerce",
-    )
-    df["temperatura"] = pd.to_numeric(df["TEMP"], errors="coerce")
-    df["predkosc_wiatru"] = pd.to_numeric(df["FWR"], errors="coerce")
-    df["wilgotnosc_wzgledna"] = pd.to_numeric(df["WLGW"], errors="coerce")
-    df["suma_opadu"] = pd.to_numeric(df["WO6G"], errors="coerce")
-    df["cisnienie"] = pd.to_numeric(df["PPPM"], errors="coerce")
-    out = df[["stacja", "timestamp", "temperatura", "predkosc_wiatru",
-              "wilgotnosc_wzgledna", "suma_opadu", "cisnienie"]].dropna(subset=["timestamp"])
+    out = _parse_synop(df)
+    if out.empty:
+        return out
     print(f"[OK] {year}-{month:02d}: {len(out)} realnych wierszy ({sorted(out['stacja'].unique())})")
     return out
+
+
+# Starsze lata IMGW trzyma w ROCZNYCH plikach osobno dla kazdej stacji:
+#   .../synop/{rok}/{rok}_{kod}_s.zip  (kod: 105 Koszalin, 115 Ustka, 235 Chojnice)
+YEAR_STATION_URL = (
+    "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/"
+    "dane_meteorologiczne/terminowe/synop/{year}/{year}_{code}_s.zip"
+)
+STATION_CODES = {"Koszalin": 105, "Ustka": 115, "Chojnice": 235}
+
+
+def fetch_year(year: int) -> pd.DataFrame:
+    """Pobiera caly rok dla naszych 3 stacji z rocznych plikow (lata sprzed miesiecznych archiwow)."""
+    parts = []
+    for name, code in STATION_CODES.items():
+        url = YEAR_STATION_URL.format(year=year, code=code)
+        r = requests.get(url, timeout=120)
+        if r.status_code != 200:
+            continue
+        try:
+            zf = zipfile.ZipFile(io.BytesIO(r.content))
+        except zipfile.BadZipFile:
+            print(f"[WARN] {year} {name}: uszkodzone archiwum ZIP - pomijam.")
+            continue
+        with zf.open(zf.namelist()[0]) as fh:
+            df = pd.read_csv(fh, header=None, names=COLUMNS, encoding="cp1250", low_memory=False)
+        out = _parse_synop(df)
+        if not out.empty:
+            parts.append(out)
+    if not parts:
+        print(f"[INFO] Brak rocznego archiwum dla {year} - pomijam.")
+        return pd.DataFrame()
+    res = pd.concat(parts, ignore_index=True)
+    print(f"[OK] {year} (roczne pliki): {len(res)} realnych wierszy ({sorted(res['stacja'].unique())})")
+    return res
 
 
 def detect_start_month() -> tuple[int, int]:
@@ -148,7 +195,18 @@ def main():
         print(f"[INFO] Auto-wykryty start: {start_year}-{start_month:02d}")
 
     chunks = []
+    yearly_done = set()
+    for y in range(start_year, date.today().year):
+        yearly = fetch_year(y)
+        if not yearly.empty:
+            # tnij do zadanego poczatku (start_month) w pierwszym roku
+            if y == start_year:
+                yearly = yearly[yearly["timestamp"] >= pd.Timestamp(y, start_month, 1)]
+            chunks.append(yearly)
+            yearly_done.add(y)
     for y, m in month_range(start_year, start_month):
+        if y in yearly_done:
+            continue
         chunk = fetch_month(y, m)
         if not chunk.empty:
             chunks.append(chunk)

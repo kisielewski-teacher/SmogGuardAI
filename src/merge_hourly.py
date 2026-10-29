@@ -107,6 +107,22 @@ def _normalize_time_tz(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# Kolejnosc stacji pogodowych: najblizsze Slupska pierwsze. Gdy kilka stacji ma te sama godzine,
+# bierzemy wartosc z najblizszej, a brakujace kolumny uzupelniamy z kolejnej. Bez tego wybor
+# stacji byl przypadkowy (ok. 21% godzin dostawalo pogode z Chojnic, 80 km w glebi ladu).
+WEATHER_STATION_PRIORITY = ["Slupsk", "Słupsk", "Ustka", "Leba", "Łeba", "Koszalin", "Chojnice"]
+
+
+def collapse_weather_stations(i: pd.DataFrame) -> pd.DataFrame:
+    """Jeden wiersz pogody na godzine: pierwsza niepusta wartosc wg WEATHER_STATION_PRIORITY."""
+    if "stacja" not in i.columns or i.empty:
+        return i
+    rank = {name.upper(): n for n, name in enumerate(WEATHER_STATION_PRIORITY)}
+    prio = i["stacja"].astype(str).str.strip().str.upper().map(lambda x: rank.get(x, 50 if "OPENMETEO" not in x else 99))
+    i = i.assign(_prio=prio).sort_values(["timestamp", "_prio"], kind="stable").drop(columns="_prio")
+    return i.groupby("timestamp", as_index=False, sort=True).first()
+
+
 # --- Główna logika ---
 def main():
     g = _read_csv_robust(gios_path)
@@ -129,6 +145,7 @@ def main():
     # Ujednolicenie czasu
     g = _normalize_time_tz(g)
     i = _normalize_time_tz(i)
+    i = collapse_weather_stations(i)
 
     if g.empty or i.empty:
         logger.warning("Po czyszczeniu brak danych do scalania — zapisuję GIOŚ.")

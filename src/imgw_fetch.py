@@ -60,13 +60,30 @@ def normalize(df: pd.DataFrame, stations_filter: list[str] | None = None) -> pd.
         errors="coerce"
     )
     cols = [
-        "stacja", "timestamp", "temperatura", "predkosc_wiatru", "wilgotnosc_wzgledna", "suma_opadu", "cisnienie"
+        "stacja", "timestamp", "temperatura", "predkosc_wiatru", "kierunek_wiatru",
+        "wilgotnosc_wzgledna", "suma_opadu", "cisnienie"
     ]
     out = near[[c for c in cols if c in near.columns]].copy()
-    for c in ["temperatura", "predkosc_wiatru", "wilgotnosc_wzgledna", "suma_opadu", "cisnienie"]:
+    for c in ["temperatura", "predkosc_wiatru", "kierunek_wiatru", "wilgotnosc_wzgledna", "suma_opadu", "cisnienie"]:
         if c in out.columns:
             out[c] = pd.to_numeric(out[c], errors="coerce")
     return out
+
+def append_aligned(norm: pd.DataFrame, out: Path) -> None:
+    """Dopisz wiersze tak, zeby kolumny zgadzaly sie z naglowkiem pliku (inaczej CSV sie rozjezdza).
+
+    Gdy plik nie ma jeszcze jakiejs nowej kolumny (np. kierunek_wiatru), przepisujemy go z pusta kolumna.
+    """
+    if not out.exists() or out.stat().st_size == 0:
+        norm.to_csv(out, index=False)
+        return
+    old = pd.read_csv(out)
+    missing = [c for c in norm.columns if c not in old.columns]
+    if missing:
+        pd.concat([old, norm], ignore_index=True).to_csv(out, index=False)
+        return
+    norm.reindex(columns=list(old.columns)).to_csv(out, mode="a", header=False, index=False)
+
 
 def main():
     ap = argparse.ArgumentParser(prog="imgw_fetch.py", description="Fetch IMGW synop and save hourly rows (filter by station).")
@@ -84,9 +101,7 @@ def main():
 
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
-        mode = "a" if out.exists() else "w"
-        header = not out.exists()
-        norm.to_csv(out, mode=mode, header=header, index=False)
+        append_aligned(norm, out)
         logger.info(f"Dopisałem {len(norm)} wierszy do {out}")
     except Exception as e:
         logger.exception(f"Błąd IMGW: {e}")

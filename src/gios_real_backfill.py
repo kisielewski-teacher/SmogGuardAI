@@ -9,7 +9,7 @@ zanieczyszczeń w pipeline — plik wynikowy (data/gios_slupsk.csv) jest
 samodzielną, ciągłą siatką godzinową i nie zależy już od aqicn_slupsk_data.csv
 (WAQI). Dane GIOŚ są danymi publicznymi (do zweryfikowania na
 https://powietrze.gios.gov.pl), co pozwala na komercyjne wykorzystanie pod
-warunkiem podania źródła — patrz TODO.md.
+warunkiem podania źródła — patrz ToDo.md.
 
 Stacja: Słupsk, ul. Kniaziewicza (najbliższa stacja GIOŚ, wykrywana
 automatycznie na podstawie współrzędnych — zob. _nearest_station()
@@ -148,6 +148,17 @@ def main():
         if col not in out.columns:
             out[col] = pd.NA
     out = out[CANONICAL_COLUMNS]
+
+    # Nie kasuj historii sprzed --start: dolacz istniejace wiersze, a nowe pomiary
+    # (niepuste) maja pierwszenstwo przed starymi w nakladajacym sie zakresie.
+    if GIOS_PATH.exists():
+        old = pd.read_csv(GIOS_PATH, parse_dates=["timestamp"])
+        if not old.empty:
+            merged = pd.concat([old, out]).sort_values("timestamp")
+            value_cols = [c for c in CANONICAL_COLUMNS if c not in ("timestamp", "station")]
+            out = (merged.groupby("timestamp", as_index=False)
+                   .agg({"station": "last", **{c: "last" for c in value_cols}})
+                   [CANONICAL_COLUMNS])
 
     out.to_csv(GIOS_PATH, index=False)
     counts = {c: int(out[c].notna().sum()) for c in ["PM10", "PM2.5", "NO2", "O3"]}

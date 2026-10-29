@@ -180,7 +180,11 @@ def main():
     else:
         last_true_ts = merged_hist["timestamp"].min()
 
-    future_sel = df_pred[df_pred["timestamp"] > last_true_ts][["timestamp", col_pred]].copy()
+    # przedzial niepewnosci (opcjonalny): kolumny *_pred_low / *_pred_high tylko dla przyszlosci
+    band_cols = [c for c in (f"{col_pred}_low", f"{col_pred}_high") if c in df_pred.columns]
+    for c in band_cols:
+        df_pred[c] = pd.to_numeric(df_pred[c], errors="coerce")
+    future_sel = df_pred[df_pred["timestamp"] > last_true_ts][["timestamp", col_pred] + band_cols].copy()
     future_sel[col_true] = np.nan
     future_sel[col_hist] = future_sel[col_pred] if args.coalesce_hist else np.nan
     future_sel["error"] = np.nan
@@ -225,8 +229,10 @@ def main():
             .reindex(full_idx)
         )
         df_final.index.name = "timestamp"
-        # Pomiary (*_true): interpolacja liniowa (max 6h ciągłej przerwy)
-        df_final[col_true] = df_final[col_true].interpolate(method="linear", limit=6)
+        # Pomiary (*_true): interpolacja liniowa TYLKO między pomiarami (max 6h ciągłej przerwy).
+        # limit_area="inside" jest kluczowe: bez niego pandas dopisywał ostatni pomiar na 6 godzin W PRZYSZŁOŚĆ,
+        # więc godziny prognozy wyglądały jak zmierzone (a panel chował ich prognozę).
+        df_final[col_true] = df_final[col_true].interpolate(method="linear", limit=6, limit_area="inside")
         # Predykcja i historia: pełna interpolacja liniowa (model daje ciągłe wyjście)
         for col in [col_pred, col_hist]:
             if col in df_final.columns:
@@ -236,7 +242,7 @@ def main():
         # Pogoda: interpolacja (max 6h)
         for col in ["temp", "rh", "pressure", "wind"]:
             if col in df_final.columns:
-                df_final[col] = df_final[col].interpolate(method="linear", limit=6)
+                df_final[col] = df_final[col].interpolate(method="linear", limit=6, limit_area="inside")
         df_final = df_final.reset_index()
 
     # --- Zapis ---
