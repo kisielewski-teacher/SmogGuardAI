@@ -18,26 +18,12 @@ echo [INFO] PROJ_DIR=%PROJ_DIR%
 echo [INFO] VENV_DIR=%VENV_DIR%
 echo [INFO] PYTHON=%PYTHON%
 
-if not exist "%VENV_DIR%\Scripts\activate.bat" (
-  echo [ERR] Brak wirtualnego srodowiska w "%VENV_DIR%".
-  echo Tworze srodowisko i instaluje zaleznosci...
-  py -m venv ".venv" || (echo [ERR] Nie moge utworzyc .venv & goto :end)
-)
+REM === SPRAWDZENIE PYTHONA, .VENV I PAKIETOW (instaluje, jesli czegos brakuje) ===
+call "%PROJ_DIR%\ensure_env.bat" || goto :end
 
 call "%VENV_DIR%\Scripts\activate.bat"
 
-REM === SPRAWDZENIE, CZY PANDAS JEST ZAINSTALOWANY ===
-"%PYTHON%" -c "import pandas" >nul 2>&1
-if errorlevel 1 (
-  echo [INFO] Brakuje pakietow w .venv – instalacja requirements...
-  "%PYTHON%" -m pip install --upgrade pip
-  "%PYTHON%" -m pip install -r "%PROJ_DIR%\requirements.txt" || (
-    echo [ERR] Instalacja requirements nie powiodla sie.
-    goto :end
-  )
-)
-
-REM === KATALOGI WYJŚCIOWE ===
+REM === KATALOGI WYJSCIOWE ===
 if not exist "%PROJ_DIR%\data" mkdir "%PROJ_DIR%\data"
 if not exist "%PROJ_DIR%\logs" mkdir "%PROJ_DIR%\logs"
 
@@ -58,7 +44,7 @@ if errorlevel 1 echo [WARN] sensor_community_fetch.py zakonczyl sie kodem %ERROR
 if errorlevel 1 echo [WARN] merge_hourly.py zakonczyl sie kodem %ERRORLEVEL%
 REM === PIPELINE 2: TRENING ===
 "%PYTHON%" "%PROJ_DIR%\src\train_pm10.py" >> "%PROJ_DIR%\logs\train.log" 2>&1
-REM "%PYTHON%" "%PROJ_DIR%\src\train_pm25.py" >> "%PROJ_DIR%\logs\train_pm25.log" 2>&1  REM tymczasowo wylaczony — tylko PM10
+REM "%PYTHON%" "%PROJ_DIR%\src\train_pm25.py" >> "%PROJ_DIR%\logs\train_pm25.log" 2>&1  REM tymczasowo wylaczony - tylko PM10
 
 REM === PIPELINE 3: PREDYKCJA ===
 "%PYTHON%" "%PROJ_DIR%\src\predict.py" ^
@@ -67,7 +53,7 @@ REM === PIPELINE 3: PREDYKCJA ===
   --out "%PROJ_DIR%\outputs\pm10_pred_latest.csv" ^
   >> "%PROJ_DIR%\logs\predict.log" 2>&1
 
-REM "%PYTHON%" "%PROJ_DIR%\src\predict_pm25.py" >> "%PROJ_DIR%\logs\predict_pm25.log" 2>&1  REM tymczasowo wylaczona — tylko PM10
+REM "%PYTHON%" "%PROJ_DIR%\src\predict_pm25.py" >> "%PROJ_DIR%\logs\predict_pm25.log" 2>&1  REM tymczasowo wylaczona - tylko PM10
 
 
 "%PYTHON%" "%PROJ_DIR%\src\merge_pm10_results.py" ^

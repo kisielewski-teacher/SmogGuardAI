@@ -21,6 +21,8 @@ oprogramowania korzystającego z tych bibliotek.
 | [joblib](https://pypi.org/project/joblib/) | BSD 3-Clause | <https://github.com/joblib/joblib/blob/main/LICENSE.txt> |
 | [beautifulsoup4](https://pypi.org/project/beautifulsoup4/) | MIT | <https://www.crummy.com/software/BeautifulSoup/#Download> |
 | [pytest](https://pypi.org/project/pytest/) | MIT | <https://github.com/pytest-dev/pytest/blob/main/LICENSE> |
+| [pytest-xdist](https://pypi.org/project/pytest-xdist/) | MIT | <https://github.com/pytest-dev/pytest-xdist/blob/master/LICENSE> |
+| [lightgbm](https://pypi.org/project/lightgbm/) | MIT | <https://github.com/microsoft/LightGBM/blob/master/LICENSE> |
 
 ## Źródła danych (nie są bibliotekami, ale też wymagają atrybucji)
 
