@@ -92,7 +92,7 @@ def ensure_features_exist() -> Path:
 
     # Cechy czasowe
     dfm["hour"] = dfm["timestamp"].dt.hour
-    dfm["dow"] = dfm["timestamp"].dt.dayofweek
+    dfm["dow"] = dfm["timestamp"].dt.day_of_week
 
     # Lagi i rolling (proste, odporne na małe zbiory)
     dfm["pm10_lag1"] = dfm["PM10"].shift(1)

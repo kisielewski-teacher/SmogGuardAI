@@ -273,7 +273,7 @@ def build_future_frame(df_feats: pd.DataFrame, time_col: str, horizon: int,
     base[time_col] = future_index
 
     base["hour"] = base[time_col].dt.hour
-    base["dow"] = base[time_col].dt.dayofweek
+    base["dow"] = base[time_col].dt.day_of_week
     base["is_weekend"] = (base["dow"] >= 5).astype(int)
     base["month"] = base[time_col].dt.month
     return base

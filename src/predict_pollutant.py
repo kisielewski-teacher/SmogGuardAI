@@ -54,7 +54,7 @@ def build_features(dfm: pd.DataFrame, target: str) -> pd.DataFrame:
     name = sanitize_name(target)
     dfm = dfm.copy()
     dfm["hour"] = dfm["timestamp"].dt.hour
-    dfm["dow"] = dfm["timestamp"].dt.dayofweek
+    dfm["dow"] = dfm["timestamp"].dt.day_of_week
     dfm[f"{name}_lag1"] = dfm[target].shift(1)
     dfm[f"{name}_lag3"] = dfm[target].shift(3)
     dfm[f"{name}_roll3"] = dfm[target].rolling(3).mean().shift(1)

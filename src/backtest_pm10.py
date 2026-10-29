@@ -49,6 +49,10 @@ def parse_args():
     p.add_argument("--sep", type=str, default=",")
     p.add_argument("--encoding", type=str, default="utf-8")
     p.add_argument("--out-dir", type=str, default="outputs")
+    p.add_argument("--slow-loop", action="store_true",
+                   help="Stara petla wiersz po wierszu (wolna, ~9 min); domyslnie jedno wywolanie wsadowe.")
+    p.add_argument("--verify-last", type=int, default=0,
+                   help="Porownaj tryb wsadowy z petla na ostatnich N wierszach (przerywa przy rozbieznosci).")
     return p.parse_args()
 
 
@@ -134,23 +138,35 @@ def main():
                     else:
                         raise RuntimeError(f"Brak kolumny z danymi celu do backtestu.")
 
-    preds = []
-    times = []
-    y_true = []
-
     # Walk-forward: na każdym kroku przewidujemy bieżący wiersz, używając pełnej historii do bieżącej chwili.
     # Cały chunk (nie tylko ostatni wiersz) trzeba podać do pipe.predict(), bo ExtendedFeatureBuilder
     # liczy lagi/rolling przez shift()/rolling() na przekazanym DataFrame — pojedynczy wiersz
     # dawałby same NaN w cechach lag/rolling i model przestałby realnie korzystać z historii PM10.
-    for i in range(warmup, len(df)):
-        # Wystarczy `warmup` wierszy historii przed bieżącym, żeby poprawnie
-        # policzyć najdłuższy lag/rolling — ograniczamy okno, żeby backtest
-        # nie robił się O(n^2) na długiej historii.
-        chunk = df.iloc[max(0, i - warmup): i + 1].copy()
-        y_hat = pipe.predict(chunk)[-1]
-        preds.append(y_hat)
-        times.append(df.loc[i, args.time_col])
-        y_true.append(df.loc[i, args.target])
+    def _loop_predict(start):
+        res = []
+        for i in range(start, len(df)):
+            # Wystarczy `warmup` wierszy historii przed bieżącym, żeby poprawnie
+            # policzyć najdłuższy lag/rolling.
+            chunk = df.iloc[max(0, i - warmup): i + 1].copy()
+            res.append(pipe.predict(chunk)[-1])
+        return np.asarray(res, dtype=float)
+
+    if args.slow_loop:
+        preds = list(_loop_predict(warmup))
+    else:
+        # Wsadowo: cechy lag/rolling sa przyczynowe (shift/rolling), wiec predykcja calego
+        # DataFrame daje te same wartosci co petla po oknach, ale ~100x szybciej.
+        batch = np.asarray(pipe.predict(df), dtype=float)[warmup:]
+        if args.verify_last:
+            n = min(args.verify_last, len(batch))
+            loop = _loop_predict(len(df) - n)
+            if not np.allclose(batch[-n:], loop, rtol=1e-6, atol=1e-6, equal_nan=True):
+                diff = np.nanmax(np.abs(batch[-n:] - loop))
+                raise RuntimeError(f"Tryb wsadowy rozni sie od petli (max roznica {diff:.6g})")
+            print(f"[OK] Tryb wsadowy zgodny z petla na ostatnich {n} wierszach")
+        preds = list(batch)
+    times = list(df[args.time_col].iloc[warmup:])
+    y_true = list(df[args.target].iloc[warmup:])
 
     out = pd.DataFrame({
         args.time_col: times,

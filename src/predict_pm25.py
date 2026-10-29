@@ -57,7 +57,7 @@ df_feat = build_lag_features(df, TARGET, LAGS, ROLLS)
 window = recent_window(df_feat, TARGET, n=48)
 
 # Iteratywna prognoza
-fc = iterative_forecast(model, window, TARGET, FEATURES, HORIZON_HOURS, ts_col='timestamp', freq='H')
+fc = iterative_forecast(model, window, TARGET, FEATURES, HORIZON_HOURS, ts_col='timestamp', freq='h')
 fc.rename(columns={'pred': PRED_COL}, inplace=True)
 
 fc.to_csv(OUT_PATH, index=False)

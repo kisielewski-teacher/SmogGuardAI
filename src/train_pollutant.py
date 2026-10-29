@@ -104,7 +104,7 @@ def build_target_series(target: str) -> pd.DataFrame:
                 d = df[["timestamp", tgt]].copy()
                 d[tgt] = pd.to_numeric(d[tgt], errors="coerce")
                 # ujednolicenie do godzin
-                d["timestamp"] = d["timestamp"].dt.floor("H")
+                d["timestamp"] = d["timestamp"].dt.floor("h")
                 d = d.groupby("timestamp", as_index=False)[tgt].mean()
                 candidates.append((path, d, tgt))
             except FileNotFoundError:
@@ -153,7 +153,7 @@ def build_features(df: pd.DataFrame, target_name: str) -> pd.DataFrame:
     df = df.copy()
     # cechy czasowe
     df["hour"] = df["timestamp"].dt.hour
-    df["dow"]  = df["timestamp"].dt.dayofweek
+    df["dow"]  = df["timestamp"].dt.day_of_week
     # lagi i rolling
     df[f"{name}_lag1"]  = df[target_name].shift(1)
     df[f"{name}_lag3"]  = df[target_name].shift(3)

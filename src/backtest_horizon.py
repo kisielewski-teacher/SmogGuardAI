@@ -112,6 +112,8 @@ def main():
     ap.add_argument("--step-hours", type=int, default=24, help="Odstęp między punktami startowymi (origins)")
     ap.add_argument("--out", default="outputs/pm10_horizon_accuracy.csv")
     ap.add_argument("--out-raw", default=None, help="Opcjonalnie: zapisz też surowe błędy per-origin/h")
+    ap.add_argument("--jobs", type=int, default=-1,
+                    help="Liczba procesów równoległych (punkty startowe są niezależne); 1 = bez równoległości, -1 = wszystkie rdzenie")
     args = ap.parse_args()
 
     df = pd.read_csv(args.csv_path, parse_dates=[args.time_col])
@@ -132,16 +134,26 @@ def main():
     origins = list(range(warmup + 5, n - args.max_horizon, args.step_hours))
     print(f"[INFO] Liczba punktów startowych (origins): {len(origins)}")
 
+    # Pojedynczy wiersz do RandomForest z n_jobs=-1 tylko traci czas na start wątków,
+    # a równoległość i tak dają procesy po punktach startowych.
+    if hasattr(model, "n_jobs"):
+        model.n_jobs = 1
+
+    def _one(o):
+        return run_one_origin(df, o, warmup, args.max_horizon, fb, model, args.time_col, target_col)
+
+    if args.jobs == 1 or len(origins) < 2:
+        results = [_one(o) for o in origins]
+    else:
+        results = joblib.Parallel(n_jobs=args.jobs, verbose=0)(joblib.delayed(_one)(o) for o in origins)
+
     all_records = []
     skipped = 0
-    for i, o in enumerate(origins):
-        recs = run_one_origin(df, o, warmup, args.max_horizon, fb, model, args.time_col, target_col)
+    for recs in results:
         if not recs:
             skipped += 1
             continue
         all_records.extend(recs)
-        if (i + 1) % 20 == 0:
-            print(f"[INFO] Przetworzono {i + 1}/{len(origins)} origins...")
 
     print(f"[INFO] Pominięto {skipped}/{len(origins)} origins (braki danych w oknie)")
     if not all_records:

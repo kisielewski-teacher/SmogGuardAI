@@ -88,7 +88,7 @@ class ExtendedFeatureBuilder(BaseEstimator, TransformerMixin):
         dt = pd.to_datetime(ts, errors="coerce")
         out = pd.DataFrame(index=dt.index)
         out["hour"] = dt.dt.hour
-        out["dow"] = dt.dt.dayofweek
+        out["dow"] = dt.dt.day_of_week
         out["month"] = dt.dt.month
         out["is_weekend"] = (out["dow"] >= 5).astype(int)
         # Cykliczne kodowanie
