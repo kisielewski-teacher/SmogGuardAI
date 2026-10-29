@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ⚠️ DEPRECATED (2026-09) — darmowy poziom Open-Meteo jest licencjonowany
-wyłącznie na użycie niekomercyjne (zob. TODO.md, sekcja "blokery sprzedaży").
+wyłącznie na użycie niekomercyjne (zob. ToDo.md, sekcja "blokery sprzedaży").
 Ten skrypt NIE jest już wywoływany przez run_full_pipeline.bat /
 run_pipeline_scheduled.bat / run_hourly.bat. build_merged_full.py buduje
 siatkę godzin samodzielnie (GIOŚ ∪ IMGW) i uzupełnia krótkie luki pogodowe

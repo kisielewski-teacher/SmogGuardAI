@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 ⚠️ NIEUŻYWANE (2026-09-27) — brak modelu o3_rf.pkl, bo train_o3.py nie może się wytrenować
-(stacja GIOŚ w Słupsku nie ma czujnika O3). Wyłączone z make_all_forecasts.py. Zob. TODO.md.
+(stacja GIOŚ w Słupsku nie ma czujnika O3). Wyłączone z make_all_forecasts.py. Zob. ToDo.md.
 
 Prognozowanie dla O3
 Wejście: models/o3_rf.pkl, data/merged_hourly.csv
@@ -37,7 +37,7 @@ df_feat = build_lag_features(df, TARGET, LAGS, ROLLS)
 window = recent_window(df_feat, TARGET, n=48)
 
 # Iteratywna prognoza
-fc = iterative_forecast(model, window, TARGET, FEATURES, HORIZON_HOURS, ts_col='timestamp', freq='H')
+fc = iterative_forecast(model, window, TARGET, FEATURES, HORIZON_HOURS, ts_col='timestamp', freq='h')
 fc.rename(columns={'pred': PRED_COL}, inplace=True)
 
 fc.to_csv(OUT_PATH, index=False)

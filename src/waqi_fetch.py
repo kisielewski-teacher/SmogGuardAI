@@ -1,6 +1,6 @@
 
 # ⚠️ DEPRECATED (2026-09) — WAQI (aqicn.org) zabrania komercyjnego wykorzystania
-# i redystrybucji danych na darmowym tokenie (zob. TODO.md, sekcja "blokery
+# i redystrybucji danych na darmowym tokenie (zob. ToDo.md, sekcja "blokery
 # sprzedaży"). Ten skrypt NIE jest już wywoływany przez run_full_pipeline.bat /
 # run_pipeline_scheduled.bat / run_hourly.bat — GIOŚ (gios_fetch.py,
 # gios_real_backfill.py) jest głównym, komercyjnie bezpiecznym źródłem

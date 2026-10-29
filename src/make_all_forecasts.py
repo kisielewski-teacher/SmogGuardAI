@@ -4,7 +4,7 @@ r"""
 make_all_forecasts.py  (wersja bez f-stringów)
 
 Jednym poleceniem uruchamia trening i prognozowanie dla: PM10, PM2.5.
-(NO2/O3 wyłączone — brak jakiegokolwiek źródła danych dla Słupska, zob. TODO.md)
+(NO2/O3 wyłączone — brak jakiegokolwiek źródła danych dla Słupska, zob. ToDo.md)
 
 Użycie (z poziomu katalogu projektu):
     py src\make_all_forecasts.py               # train + predict
@@ -27,7 +27,7 @@ MODELS = ROOT / 'models'
 # Skrypty są w folderze src
 # NO2/O3 wyłączone (2026-09-27): stacja GIOŚ w Słupsku nie ma tych czujników i żadne inne źródło
 # (Syngeos, IMGW) też ich nie mierzy — 0 próbek, train_no2.py/train_o3.py zawsze kończą się błędem.
-# Zob. TODO.md. Skrypty zostają w src/ na wypadek, gdyby stacja kiedyś dostała te czujniki.
+# Zob. ToDo.md. Skrypty zostają w src/ na wypadek, gdyby stacja kiedyś dostała te czujniki.
 TRAIN_SCRIPTS = ['train_pm10.py', 'train_pm25.py']
 PREDICT_SCRIPTS = ['predict_pm10.py', 'predict_pm25.py']
 

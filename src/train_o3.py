@@ -3,7 +3,7 @@
 """
 ⚠️ NIEUŻYWANE (2026-09-27) — stacja GIOŚ w Słupsku (ul. Kniaziewicza) nie ma czujnika O3, a żadne
 inne źródło w projekcie (Syngeos, IMGW) też go nie mierzy. Ten skrypt zawsze kończy się błędem
-(0 próbek treningowych) i jest wyłączony z make_all_forecasts.py. Zob. TODO.md. Zostaje w repo na
+(0 próbek treningowych) i jest wyłączony z make_all_forecasts.py. Zob. ToDo.md. Zostaje w repo na
 wypadek, gdyby stacja kiedyś dostała czujnik O3 (albo dodano nową stację z nim jako źródło).
 
 Trenowanie modelu prognozy dla O3
