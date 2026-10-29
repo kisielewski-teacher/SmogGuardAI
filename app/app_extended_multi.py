@@ -338,6 +338,12 @@ forecast = normalize(load_csv(FORECAST, ["timestamp"]))
 show_pm25 = False
 fc_pollutant = "PM10"
 
+# --- wersja programu (plik VERSION, zasady numerowania w CHANGELOG.md) ---
+try:
+    APP_VERSION = (Path(__file__).resolve().parents[1] / "VERSION").read_text(encoding="utf-8").strip()
+except OSError:
+    APP_VERSION = "?"
+
 # --- sidebar / filtry ---
 with st.sidebar:
     st.header("Filtry")
@@ -347,6 +353,7 @@ with st.sidebar:
     horizon_h = st.number_input("Horyzont prognozy (godziny do przodu)", min_value=1, max_value=72, value=72)
     auto_refresh = st.checkbox("Auto-odśwież co 30 sek", False)
     refresh = st.button("Odśwież dane teraz")
+    st.caption(f"SmogGuardAI v{APP_VERSION}")
 
 cut = pd.Timestamp.utcnow().tz_localize(None) - pd.Timedelta(days=days)
 

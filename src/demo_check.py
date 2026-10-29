@@ -133,7 +133,11 @@ def check_internet():
 
 
 def main() -> int:
-    print("=== Kontrola gotowosci SmogGuardAI przed prezentacja ===\n")
+    try:
+        version = (BASE / "VERSION").read_text(encoding="utf-8").strip()
+    except OSError:
+        version = "?"
+    print(f"=== Kontrola gotowosci SmogGuardAI v{version} przed prezentacja ===\n")
     for fn in (check_data, check_forecast, check_models, check_accuracy, check_docs, check_panel, check_internet):
         try:
             fn()
