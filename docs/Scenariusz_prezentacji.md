@@ -2,6 +2,8 @@
 
 Podział ról dla zespołu zostawiamy do ustalenia; poniżej czas, treść i co pokazać na ekranie.
 
+Slajdy: [Prezentacja_SmogGuardAI.pdf](Prezentacja_SmogGuardAI.pdf), notatki mówcy do każdego slajdu: [Prezentacja_notatki.md](Prezentacja_notatki.md).
+
 ## Plan wystąpienia
 
 | Czas | Temat | Co mówimy | Co pokazujemy |

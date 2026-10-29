@@ -14,3 +14,4 @@ __pycache__/
 .streamlit/
 .claude/
 .vscode/
+/docs/prezentacja/prezentacja.html

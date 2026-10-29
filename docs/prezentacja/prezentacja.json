@@ -1,0 +1,16 @@
+{
+  "tytul": "SmogGuardAI — prezentacja konkursowa",
+  "kolejnosc": [
+    "okladka",
+    "problem",
+    "dane",
+    "test",
+    "metoda",
+    "wyniki",
+    "wiatr",
+    "niepewnosc",
+    "negatywne",
+    "wnioski"
+  ],
+  "czcionki": "https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&family=Nunito+Sans:wght@400;600;700&display=swap"
+}

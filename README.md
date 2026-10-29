@@ -16,6 +16,7 @@ SmogGuardAI to program komputerowy, który automatycznie pobiera **rzeczywiste, 
   liczymy na późniejszych. Wyniki, wykresy i wyniki negatywne (prognoza pogody, sąsiednie stacje, mieszanie metod):
   [docs/Jak_poprawilismy_prognoze.md](docs/Jak_poprawilismy_prognoze.md). Skrót dla komisji:
   [docs/Streszczenie_dla_komisji.md](docs/Streszczenie_dla_komisji.md).
+- **Prezentacja na konkurs:** [docs/Prezentacja_SmogGuardAI.pdf](docs/Prezentacja_SmogGuardAI.pdf) (10 slajdów), [notatki mówcy](docs/Prezentacja_notatki.md); źródła slajdów w `docs/prezentacja/` (po zmianach: `py src/build_presentation.py`).
 - **Przydatne polecenia:** `run_full_pipeline.bat` (całość + panel), `run_pipeline_scheduled.bat` (odświeżenie danych),
   `run_tests.bat` (testy na kopii projektu, ok. minuty), `demo_check.bat` (kontrola gotowości przed prezentacją).
 

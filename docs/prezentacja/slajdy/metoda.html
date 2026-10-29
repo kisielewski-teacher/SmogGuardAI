@@ -1,0 +1,22 @@
+<section id="metoda" data-transition="fade" style="background:#ECEFE8;color:#14213D;font-family:'Nunito Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600;line-height:1.1">Nowa metoda: osobny model na każdą godzinę zamiast pętli</h2>
+<div style="display:flex;gap:48px">
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border-top:8px solid #B34700;border-radius:16px;padding:32px">
+<p style="font-size:26px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#B34700">Stara metoda</p>
+<h3 style="font-family:'Rubik', Arial, sans-serif;font-size:42px;font-weight:600;line-height:1.15">Pętla: jeden model, 72 kroki</h3>
+<p style="font-size:30px;line-height:1.4;color:#3F4A5C">Wynik godziny 1 jest daną dla godziny 2, i tak dalej. Mały błąd rośnie w każdym kroku, jak w „głuchym telefonie”.</p>
+<p style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:700;line-height:1.1;color:#B34700;white-space:nowrap">6,7 µg/m³</p>
+<p style="font-size:26px;color:#3F4A5C">średni błąd na 72 godziny</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border-top:8px solid #11745A;border-radius:16px;padding:32px">
+<p style="font-size:26px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#11745A">Nowa metoda</p>
+<h3 style="font-family:'Rubik', Arial, sans-serif;font-size:42px;font-weight:600;line-height:1.15">72 osobne modele</h3>
+<p style="font-size:30px;line-height:1.4;color:#3F4A5C">Model dla godziny h od razu odpowiada, ile PM10 będzie za h godzin. Nie ma pętli, więc błędy się nie kumulują.</p>
+<p style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:700;line-height:1.1;color:#11745A;white-space:nowrap">5,9 µg/m³</p>
+<p style="font-size:26px;color:#3F4A5C">średni błąd na 72 godziny</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1200px;font-size:24px;color:#5B6472">Test na danych z 2026 roku, które modele nigdy nie widziały</p>
+<p style="position:absolute;right:128px;bottom:64px;width:200px;text-align:right;font-size:24px;color:#5B6472">5 / 10</p>
+<aside>[4:30] Skąd pomysł. Dłuższa historia nie poprawiała starej metody na 24 do 72 godzin, więc problem leżał w metodzie. Stara metoda umie przewidzieć tylko następną godzinę, a 72 godziny buduje w pętli: własna prognoza wraca jako dane do kolejnego kroku, więc błąd się powiela jak w głuchym telefonie. Nowa metoda uczy osobny model dla każdej z 72 godzin, używa algorytmu LightGBM. Na 72 godziny błąd spadł z 6,7 do 5,9 mikrograma, to około 12 procent przy tych samych danych.</aside>
+</section>
