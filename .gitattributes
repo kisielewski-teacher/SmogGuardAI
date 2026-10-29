@@ -1,0 +1,2 @@
+# Pliki .bat musza miec CRLF takze po sklonowaniu (cmd z samym LF psuje etykiety i polecenia)
+*.bat text eol=crlf

@@ -2,9 +2,25 @@
 
 ## Czym jest SmogGuardAI?
 
-SmogGuardAI to program komputerowy, który automatycznie pobiera **rzeczywiste, zweryfikowane** dane o jakości powietrza (GIOŚ, WAQI) i pogodzie (IMGW, Open-Meteo), uczy się na podstawie historii pomiarów, a następnie przewiduje stężenia zanieczyszczeń (PM10) na najbliższe **72 godziny**. Wyniki wyświetlane są w czytelnym **panelu wizualizacji** dostępnym w przeglądarce internetowej, wraz z jawnym wskaźnikiem dokładności prognozy w funkcji horyzontu czasowego.
+SmogGuardAI to program komputerowy, który automatycznie pobiera **rzeczywiste, zweryfikowane** dane o jakości powietrza (GIOŚ) i pogodzie (IMGW), uczy się na podstawie historii pomiarów, a następnie przewiduje stężenia zanieczyszczeń (PM10) na najbliższe **72 godziny**. Wyniki wyświetlane są w czytelnym **panelu wizualizacji** dostępnym w przeglądarce internetowej, wraz z jawnym wskaźnikiem dokładności prognozy w funkcji horyzontu czasowego.
 
 ---
+
+## Aktualny stan modelu (aktualizacja 2026-10-29)
+
+- **Główna prognoza** to model **bezpośredni LightGBM**: osobny model na każdą godzinę 1..72 (kod: `src/direct_forecast.py`),
+  z **przedziałem niepewności 80%** (kalibrowanym). Uczy się na 4 latach danych GIOŚ i IMGW (w tym kierunek wiatru).
+- **Pomocniczo** działa starszy model Random Forest z prognozą w pętli (`train_pm10_rf.py`, `predict_pm10.py`); jego
+  wynik daje „dopasowanie do historii” na wykresie, a przyszłe godziny nadpisuje prognoza bezpośrednia.
+- **Dokładność** mierzymy **poza próbą** (`src/experiment_direct_horizon.py`): model uczy się na starszych danych, a błąd
+  liczymy na późniejszych. Wyniki, wykresy i wyniki negatywne (prognoza pogody, sąsiednie stacje, mieszanie metod):
+  [docs/Jak_poprawilismy_prognoze.md](docs/Jak_poprawilismy_prognoze.md). Skrót dla komisji:
+  [docs/Streszczenie_dla_komisji.md](docs/Streszczenie_dla_komisji.md).
+- **Przydatne polecenia:** `run_full_pipeline.bat` (całość + panel), `run_pipeline_scheduled.bat` (odświeżenie danych),
+  `run_tests.bat` (testy na kopii projektu, ok. minuty), `demo_check.bat` (kontrola gotowości przed prezentacją).
+
+> Niektóre opisy kroków poniżej dotyczą starszego modelu rekurencyjnego. Tam, gdzie liczby różnią się od
+> dokumentu w `docs/`, obowiązują liczby z dokumentu (ocena poza próbą).
 
 ## Słowniczek — co oznaczają używane pojęcia?
 
@@ -139,7 +155,7 @@ Każde źródło zapisuje swoje dane do osobnego pliku CSV w folderze `data/`.
 > prawdy dla PM10/PM2.5/NO2/O3 (patrz Krok 4). Skrypty `waqi_fetch.py` i
 > `openmeteo_backfill.py` istnieją w `src/` wyłącznie dla zgodności z testami —
 > są zdeprecjonowane (darmowe API WAQI/Open-Meteo zabraniają użycia
-> komercyjnego, zob. `TODO.md`) i nie są już częścią żadnego pipeline'u.
+> komercyjnego, zob. `ToDo.md`) i nie są już częścią żadnego pipeline'u.
 > Podobnie `airly_fetch.py` i `sensor_community_fetch.py` istnieją w `src/`, ale
 > nie są obecnie częścią `run_full_pipeline.bat`/`run_pipeline_scheduled.bat` —
 > są używane tylko przez starszy, nieużywany już `run_hourly.bat`.
@@ -201,7 +217,7 @@ Ten sam skrypt i ta sama architektura co dla PM10 — jedyna różnica to `--tar
 
 ### Krok 7/14 — Prognozowanie PM10 na 72 godziny (`predict_pm10`)
 
-Skrypt `predict_pm10.py` używa wytrenowanego modelu do wygenerowania prognozy stężeń PM10 na kolejne 72 godziny. Prognoza liczona jest **rekurencyjnie** — wynik dla godziny *h* staje się danymi wejściowymi dla godziny *h+1*, dlatego niepewność rośnie wraz z odległością w czasie (patrz `backtest_horizon.py` w Kroku 13 i zakładka „Dokładność prognozy" w panelu). Wyniki zapisywane są do pliku `outputs/pm10_pred_latest.csv`.
+Skrypt `predict_pm10.py` generuje starszą prognozę **rekurencyjną** (wynik godziny *h* wraca jako dane dla *h+1*) i zapisuje ją, razem z dopasowaniem do historii, do `outputs/pm10_pred_latest.csv`. Zaraz po nim `direct_forecast.py train` (raz na dobę) i `direct_forecast.py predict` nadpisują **przyszłe godziny** prognozą bezpośrednią z przedziałem niepewności (kolumny `pm10_pred_low`, `pm10_pred_high`). Historia zostaje bez zmian.
 
 ### Krok 8/14 — Prognozowanie PM2.5 na 72 godziny (`predict_pm10 --model pm25_pipeline.pkl`)
 
@@ -213,28 +229,16 @@ Skrypt `backtest_pm10.py` sprawdza wstecznie błąd **1-krokowy** (h+1) — jak 
 
 Osiągane metryki walidacyjne modelu (na zbiorze wydzielonym chronologicznie): MAE ≈ 1.8–3.2 µg/m³, R² ≈ 0.88 (dokładne wartości z ostatniego treningu — plik `logs/train_pm10_rf.log`).
 
-Osobno, skrypt **`backtest_horizon.py`** mierzy błąd **wieloetapowej, rekurencyjnej** prognozy — dokładnie tak, jak działa ona w produkcji — osobno dla każdej godziny horyzontu (h=1..72). To uczciwa odpowiedź na pytanie „na ile mogę zaufać prognozie za 3 dni?". Wynik trafia do `outputs/pm10_horizon_accuracy.csv` i jest wizualizowany w zakładce **„Dokładność prognozy"** panelu. Ten krok jest wolny (~20-30 min) i uruchamia się tylko w `run_full_pipeline.bat`, nie w godzinowym `run_pipeline_scheduled.bat`.
+**Uwaga o uczciwości liczb.** `backtest_pm10.py` ocenia model także na danych, na których się uczył, więc jego
+MAE jest optymistyczne. Do oceny dokładności służy **`src/experiment_direct_horizon.py`** (ocena poza próbą), który
+wypełnia zakładkę **„Dokładność prognozy”** (`outputs/pm10_horizon_accuracy.csv`). Przykład (test na 2026 roku):
 
-```bat
-py src\backtest_horizon.py --max-horizon 72 --step-hours 24
-```
-
-**Ważne — porównanie z prognozą naiwną („bez zmian”).** `backtest_horizon.py` liczy też baseline:
-co by było, gdyby po prostu założyć, że stężenie się nie zmieni. Wynik jest pouczający i pokazany
-w dashboardzie bez koloryzowania:
-
-| Horyzont | MAE modelu | MAE baseline | Kto wygrywa |
+| Horyzont | Zgadywanie „bez zmian” | Model | Poprawa |
 | --- | --- | --- | --- |
-| 1h | 1.99 | 4.53 | Model, o **56%** dokładniejszy |
-| 6h | 4.35 | 6.54 | Model, o **34%** dokładniejszy |
-| 24h | 7.45 | 7.45 | Remis |
-| 48h | 10.54 | 8.70 | **Baseline** dokładniejszy o 21% |
-| 72h | 12.66 | 9.07 | **Baseline** dokładniejszy o 40% |
+| 24 h | 7,05 µg/m³ | 5,58 | o 21% |
+| 72 h | 7,96 µg/m³ | 5,87 | o 26% |
 
-Model AI wyraźnie wygrywa do ok. **22h**. Powyżej tego progu błąd rekurencyjnej prognozy narasta
-szybciej niż błąd prostego „załóż że będzie jak teraz” — to znany, uczciwie tu pokazany
-ograniczenie modeli autoregresyjnych na długich horyzontach. Dashboard komunikuje to wprost w
-zakładce „Dokładność prognozy" zamiast chować niewygodny wynik.
+Starszy `backtest_horizon.py` (rekurencyjny, w próbie) zostaje w repozytorium wyłącznie do porównań historycznych.
 
 Dla PM2.5 (dane szacowane, patrz Krok 5) walidacyjne MAE ≈ 2.7 µg/m³, ale R² wychodzi
 **ujemny** (ok. -10) — nie dlatego, że model jest bezużyteczny, tylko dlatego, że sam cel
@@ -262,10 +266,9 @@ Ten sam skrypt, flaga `--pollutant pm25` zamienia nazwy kolumn na `pm25_true`/`p
 i pomija fallback z WAQI (bo WAQI nie ma PM2.5 dla Słupska). Wynik: `outputs/pm25_all_latest.csv`,
 odczytywany przez zakładkę **„PM2.5"** w panelu. Pomijany, dopóki nie ma jeszcze backtestu/predykcji PM2.5.
 
-### Krok 13/14 — Audyt dokładności PM10 w funkcji horyzontu (`backtest_horizon`)
+### Krok 13/14 — Audyt dokładności PM10 poza próbą (`experiment_direct_horizon`)
 
-Patrz opis w Kroku 9 — uruchamiany tu z `--step-hours 48` (szybszy wariant), żeby pełny pipeline
-nie trwał zbyt długo przy ręcznym uruchomieniu.
+Patrz opis w Kroku 9. Model uczy się na starszych danych, a błąd liczony jest na ostatnich 300 dniach (ok. 1 minuty).
 
 ### Krok 14/14 — Uruchomienie panelu wizualizacji (`streamlit run`)
 
@@ -301,7 +304,7 @@ py -m streamlit run app/app_extended_multi.py
 Ten panel jest tym, który otwiera się automatycznie po `run_full_pipeline.bat`, i zawiera:
 
 - **Pasek KPI na górze** — aktualny PM10, prognoza za 24h/48h/72h, każda wartość z kategorią jakości powietrza wg progów GIOŚ (kolor tła: zielony → fioletowy).
-- **Plakietkę wiarygodności danych** — jawna informacja, że PM10 pochodzi z oficjalnego archiwum GIOŚ, a pogoda z IMGW/Open-Meteo (nie z danych syntetycznych).
+- **Plakietkę wiarygodności danych** — jawna informacja, że PM10 pochodzi z oficjalnego archiwum GIOŚ, a pogoda z IMGW (nie z danych syntetycznych).
 - **Rozwijane „O projekcie"** — metodologia w skrócie, przeznaczona do prezentacji (np. komisji konkursowej).
 - **Zakładkę „Dokładność prognozy"** — wykres błędu (MAE/RMSE) w funkcji horyzontu h=1..72h, **porównanie z prognozą naiwną „bez zmian"** (model musi ją pokonywać, żeby mieć sens — powyżej ok. 22h przestaje), oraz **wyjaśnialność modelu**: wykres ważności cech (feature importance) z prostym tłumaczeniem "na czym model się opiera" zamiast czarnej skrzynki.
 - Zakładki: Historia PM, Rzeczywiste vs prognoza (z czytelną legendą kolorów), Predykcja (z tabelą godzina-po-godzinie i kolorami kategorii), **PM2.5** (ta sama architektura co PM10 — pokazuje pasek postępu zbierania danych, dopóki nie ma jeszcze 72h historii), Dokładność prognozy, Pogoda.
@@ -444,7 +447,7 @@ SmogGuardAI/
  ├─ run_pipeline_scheduled.bat  ← ten sam potok BEZ dashboardu (do Harmonogramu zadań)
  ├─ setup_scheduler.bat         ← konfiguracja automatyzacji (uruchom jako admin)
  ├─ remove_scheduler.bat        ← usunięcie automatyzacji
- └─ src/backtest_horizon.py     ← audyt dokładności prognozy w funkcji horyzontu (h=1..72h)
+ └─ src/experiment_direct_horizon.py ← audyt dokładności poza próbą (h=1..72h); src/direct_forecast.py ← główna prognoza
 ```
 
 ---
@@ -494,11 +497,12 @@ Sprawdź logi w folderze `logs/` — każdy krok potoku zapisuje tam swój rapor
 
 | Parametr | Wartość |
 | --- | --- |
-| Algorytm | Random Forest (scikit-learn) |
+| Algorytm (główna prognoza) | LightGBM, osobny model na każdą godzinę 1..72 (prognoza bezpośrednia) + przedział 80% |
+| Algorytm pomocniczy | Random Forest (scikit-learn) — dopasowanie do historii |
 | Liczba drzew | 300 |
 | `min_samples_leaf` | 10 (patrz niżej — dobrane empirycznie) |
 | Rozmiar pliku modelu | ~3,5 MB (PM10), ~3,8 MB (PM2.5) — kompresja joblib `compress=6` |
-| Horyzont prognozy | 72 godziny (prognoza rekurencyjna) |
+| Horyzont prognozy | 72 godziny (prognoza bezpośrednia) |
 | Częstotliwość aktualizacji | Co godzinę |
 | MAE (walidacja, chronologiczny podział 80/20) | ~2,94 µg/m³ (PM10) |
 | R² (walidacja, chronologiczny podział 80/20) | ~0,59 (PM10) |

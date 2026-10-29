@@ -195,9 +195,8 @@ def kpi_tile(col, label: str, value_str: str, sub: str = "", color: str = "#3133
 
 st.title("🌫️ SmogGuardAI — prognoza zanieczyszczenia powietrza PM10 dla Słupska")
 st.caption(
-    "Model AI (Random Forest) przewiduje stężenie pyłu PM10 na podstawie rzeczywistych pomiarów "
-    "**GIOŚ** (Główny Inspektorat Ochrony Środowiska) i **IMGW**, uzupełnionych danymi pogodowymi "
-    "**IMGW / Open-Meteo**. Linia ciągła = pomiar rzeczywisty, linia przerywana = prognoza modelu."
+    "Model AI (LightGBM, osobny model na każdą godzinę prognozy) przewiduje stężenie pyłu PM10 na podstawie rzeczywistych pomiarów "
+    "**GIOŚ** (Główny Inspektorat Ochrony Środowiska) i danych pogodowych **IMGW** (w tym kierunku wiatru). Linia ciągła = pomiar rzeczywisty, linia przerywana = prognoza modelu."
 )
 
 # --- pomocnicze ---
@@ -335,7 +334,7 @@ forecast = normalize(load_csv(FORECAST, ["timestamp"]))
 # NIE włączaj bez ponownej weryfikacji jakości: model PM2.5 (models/pm25_pipeline.pkl) ma
 # R² = -22 (2026-09-27) — tylko 15 prawdziwych par pomiarowych Syngeos+GIOŚ na 6419+ wierszy,
 # reszta to szacunki sezonowym współczynnikiem PM2.5/PM10 (estimate_pm25_from_pm10.py).
-# Pokazanie tego jako "prognozę" klientowi byłoby wprowadzające w błąd — zob. TODO.md.
+# Pokazanie tego jako "prognozę" klientowi byłoby wprowadzające w błąd — zob. ToDo.md.
 show_pm25 = False
 fc_pollutant = "PM10"
 
@@ -440,8 +439,8 @@ with badge_col2:
         except Exception:
             mae_txt = "patrz zakładka Dokładność"
     else:
-        mae_txt = "uruchom backtest_horizon.py"
-    st.info(f"🤖 **Model:** Random Forest, cechy: historia PM10 + pogoda + kalendarz.\n\n{mae_txt}", icon="🤖")
+        mae_txt = "uruchom run_full_pipeline.bat"
+    st.info(f"🤖 **Model:** LightGBM (osobny model na każdą godzinę), cechy: historia PM10 + pogoda + kierunek wiatru + kalendarz.\n\n{mae_txt}", icon="🤖")
 
 with st.expander("ℹ️ O projekcie — metodologia (dla komisji konkursowej)", expanded=False):
     st.markdown(
@@ -451,15 +450,11 @@ with st.expander("ℹ️ O projekcie — metodologia (dla komisji konkursowej)",
 - **PM2.5** — GIOŚ (jeśli stacja raportuje), uzupełniająco prywatne czujniki **Syngeos** w okolicy Słupska. Zbieranie
   danych trwa od niedawna — model PM2.5 uruchomi się automatycznie, gdy uzbiera się min. 72h historii
   (patrz zakładka **"PM2.5"**).
-- **Pogoda** — [IMGW](https://danepubliczne.imgw.pl) (stacje synoptyczne) oraz [Open-Meteo](https://open-meteo.com) (archiwum + prognoza godzinowa).
+- **Pogoda** — [IMGW](https://danepubliczne.imgw.pl) (stacje synoptyczne Ustka, Koszalin, Chojnice: temperatura, wiatr i jego kierunek, wilgotność, ciśnienie). Nie korzystamy z zewnętrznych prognoz pogody.
 
-**Model:** Random Forest Regressor (scikit-learn), identyczna architektura dla PM10 i PM2.5 — cechy: opóźnienia
-(lag) i średnie kroczące zanieczyszczenia (1–24h), cechy czasowe (godzina, dzień tygodnia, miesiąc, sezon
-grzewczy — cyklicznie kodowane), temperatura, wilgotność, ciśnienie, wiatr.
+**Model:** LightGBM (gradient boosting na drzewach decyzyjnych), dla każdego z 72 horyzontów osobny model — cechy: ostatnie wartości PM10 (1–48 h wstecz) i ich średnie kroczące, temperatura, wilgotność, ciśnienie, wiatr (prędkość i kierunek jako składowe wschód–zachód i północ–południe), pora doby i roku.
 
-**Prognoza przyszłości** liczona jest **iteracyjnie** (rekurencyjnie) — prognoza z godziny *h* staje się danymi
-wejściowymi dla godziny *h+1*, dlatego niepewność rośnie wraz z długością horyzontu (patrz zakładka
-**"Dokładność prognozy"**). Pogoda w oknie przyszłości pochodzi z prognozy Open-Meteo (do 72h naprzód).
+**Prognoza przyszłości** jest **bezpośrednia**: model dla horyzontu *h* od razu odpowiada, ile będzie PM10 za *h* godzin, na podstawie tego, co znamy teraz. Błędy nie sumują się w pętli, jak w starszej metodzie rekurencyjnej (patrz zakładka **"Dokładność prognozy"**). Pogoda z przyszłości nie jest używana — tylko pogoda z chwili startu.
 
 **Uczciwość danych:** część historii PM10 (styczeń–kwiecień 2026) była tymczasowo uzupełniona wartościami
 syntetycznymi w trakcie budowy pipeline'u — zostały one w całości zastąpione realnymi, zweryfikowanymi
@@ -470,14 +465,15 @@ pomiarami z archiwum GIOŚ (skrypt `gios_real_backfill.py`).
 st.divider()
 
 # --- zakładki ---
-tab_hist, tab_compare, tab_future, tab_pm25, tab_accuracy, tab_norms, tab_weather = st.tabs([
+tab_hist, tab_compare, tab_future, tab_pm25, tab_accuracy, tab_norms, tab_weather, tab_wind = st.tabs([
     "Historia PM",
     "Rzeczywiste vs prognoza",
     "Predykcja (tylko przyszłość)",
     "PM2.5",
     "Dokładność prognozy",
     "Normy PL vs WHO",
-    "Pogoda (IMGW)"
+    "Pogoda (IMGW)",
+    "Róża wiatrów"
 ])
 
 # --- Tab 1: Historia PM ---
@@ -571,11 +567,18 @@ with tab_compare:
             cut_rule = alt.Chart(pd.DataFrame({"timestamp": [last_meas_ts]}))\
                 .mark_rule(strokeDash=[4, 4], color="gray").encode(x="timestamp:T")
             final = meas_ch + hist_ch + fut_ch + norm_rule + norm_label + cut_rule
+            band_df = fut_plot_c.dropna(subset=[c for c in ("pm10_pred_low", "pm10_pred_high") if c in fut_plot_c.columns]) \
+                if {"pm10_pred_low", "pm10_pred_high"}.issubset(fut_plot_c.columns) else pd.DataFrame()
+            if not band_df.empty:
+                band_ch = alt.Chart(band_df).mark_area(opacity=0.18, color="#2ca02c").encode(
+                    x="timestamp:T", y=alt.Y("pm10_pred_low:Q", title="PM10 [µg/m³]"), y2="pm10_pred_high:Q")
+                final = band_ch + final
             st.altair_chart(final.resolve_scale(y="shared").properties(height=340), use_container_width=True)
             st.caption(
                 "🔴 Ciągła czerwona = rzeczywisty pomiar · 🔵 Niebieska = dopasowanie modelu do przeszłości "
                 "(kontrola jakości) · 🟢 Zielona przerywana = prognoza AI na przyszłość · "
-                "Szara pionowa kreska = 'teraz' (ostatni realny pomiar)."
+                "Szara pionowa kreska = 'teraz' (ostatni realny pomiar) · "
+                "Zielony cień = przedział, w którym pomiar znajdzie się z prawdopodobieństwem ok. 80%."
             )
         else:
             cols_plot = [c for c in ["pm10_pred"] if c in fc.columns]
@@ -647,13 +650,26 @@ with tab_future:
                 norm_rule = alt.Chart(pd.DataFrame({"y": [50]})).mark_rule(
                     strokeDash=[2, 2], color="#999", strokeWidth=1
                 ).encode(y="y:Q")
-                st.altair_chart((line + pts + norm_rule).properties(height=320), use_container_width=True)
+                layers = line + pts + norm_rule
+                if {"pm10_pred_low", "pm10_pred_high"}.issubset(df_future.columns) and df_future["pm10_pred_low"].notna().any():
+                    band = alt.Chart(df_future.dropna(subset=["pm10_pred_low", "pm10_pred_high"])).mark_area(
+                        opacity=0.18, color="#2ca02c").encode(
+                        x="timestamp:T", y=alt.Y("pm10_pred_low:Q", title="PM10 [µg/m³]"), y2="pm10_pred_high:Q")
+                    layers = band + layers
+                    st.caption(
+                        "🟩 Zielony cień = **przedział niepewności**: z prawdopodobieństwem ok. 80% rzeczywiste PM10 "
+                        "znajdzie się w tym pasie (w teście na danych, których model nie widział, trafiał 78%). "
+                        "Pas jest szeroki, bo smogu nie da się dokładnie przewidzieć — im szerszy, tym mniej pewna prognoza."
+                    )
+                st.altair_chart(layers.properties(height=320), use_container_width=True)
             else:
                 st.line_chart(df_future.set_index("timestamp")[[pred_col]])
 
             with st.expander("📋 Szczegółowa tabela prognozy godzina po godzinie"):
-                tbl = df_future[["timestamp", pred_col, "kategoria"]].rename(
-                    columns={pred_col: "PM10 [µg/m³]", "timestamp": "Data i godzina", "kategoria": "Jakość powietrza"}
+                tbl_cols = ["timestamp", pred_col] + [c for c in ("pm10_pred_low", "pm10_pred_high") if c in df_future.columns] + ["kategoria"]
+                tbl = df_future[tbl_cols].rename(
+                    columns={pred_col: "PM10 [µg/m³]", "timestamp": "Data i godzina", "kategoria": "Jakość powietrza",
+                             "pm10_pred_low": "Dolna granica (10%)", "pm10_pred_high": "Górna granica (90%)"}
                 )
                 st.dataframe(tbl, use_container_width=True, hide_index=True)
 
@@ -774,14 +790,14 @@ with tab_pm25:
 with tab_accuracy:
     st.subheader("📏 Jak bardzo można ufać prognozie? Błąd modelu w funkcji horyzontu")
     st.caption(
-        "Prognoza jest liczona rekurencyjnie: wynik dla godziny *h* staje się danymi wejściowymi dla *h+1*, "
-        "więc błąd naturalnie rośnie z odległością w czasie. Ten wykres pokazuje zmierzony (nie szacowany) "
-        "błąd modelu na historycznych danych — metodologia w `src/backtest_horizon.py`."
+        "Błąd naturalnie rośnie z odległością w czasie. Ten wykres pokazuje zmierzony (nie szacowany) błąd "
+        "modelu **poza próbą**: model uczy się na danych sprzed okresu testowego, a oceniany jest na późniejszym, "
+        "którego nigdy nie widział (metodologia: `src/experiment_direct_horizon.py`, opis: `docs/Jak_poprawilismy_prognoze.md`)."
     )
     if not HORIZON_ACC.exists():
         st.warning(
             "Brak pliku `outputs/pm10_horizon_accuracy.csv`. Uruchom audyt:\n\n"
-            "`py src/backtest_horizon.py --max-horizon 72 --step-hours 24`"
+            "`py src/experiment_direct_horizon.py --test-days 300 --train-years 4 --step-hours 12 --out outputs/pm10_horizon_accuracy.csv`"
         )
     else:
         acc = pd.read_csv(HORIZON_ACC)
@@ -824,19 +840,15 @@ with tab_accuracy:
                     st.warning(
                         f"📐 **Uczciwy wniosek z audytu:** model wyraźnie pokonuje prognozę „bez zmian” "
                         f"do ok. **{crossover_h}h** (najlepiej przy h+{int(best_h['horizon_h'])}h: "
-                        f"{best_h['improvement_pct']:+.0f}% mniejszy błąd). Powyżej tego progu rekurencyjne "
-                        "sumowanie błędu sprawia, że zwykłe „załóż że będzie jak teraz” zaczyna wygrywać z AI. "
-                        "To realne ograniczenie modeli autoregresyjnych przy długich horyzontach — pokazujemy "
+                        f"{best_h['improvement_pct']:+.0f}% mniejszy błąd). Powyżej tego progu "
+                        "zwykłe „załóż że będzie jak teraz” zaczyna wygrywać z AI. "
+                        "To realne ograniczenie prognoz na długich horyzontach — pokazujemy "
                         "je wprost zamiast ukrywać. Praktyczny wniosek: prognozie warto ufać najbardziej "
                         f"w oknie 1–{crossover_h}h, dalej traktować ją jako orientacyjny trend, nie liczbę.",
                         icon="📐",
                     )
         st.caption(
-            "⚠️ Uwaga metodologiczna: audyt zakłada *idealną* prognozę pogody (używa rzeczywistej, "
-            "zarejestrowanej pogody z przeszłości), bo nie da się odtworzyć historycznych prognoz "
-            "Open-Meteo sprzed czasu. W realnym działaniu błąd może być nieznacznie wyższy — ten wykres "
-            "pokazuje więc dolną granicę błędu, nie górną."
-        )
+            "ℹ️ Jak czytać ten wykres: model uczył się na starszych danych, a błąd mierzony jest na ostatnich ~300 dniach, których nie widział. Nie używa on żadnej prognozy pogody (tylko pogody z chwili startu), więc nie ma tu „podglądania przyszłości”. Okres testowy obejmuje jeden sezon — wynik warto potwierdzić po kolejnej zimie.")
         with st.expander("Pełna tabela wyników audytu"):
             st.dataframe(acc, use_container_width=True, hide_index=True)
 
@@ -845,7 +857,7 @@ with tab_accuracy:
     st.caption(
         "Random Forest nie jest „czarną skrzynką” — po treningu można sprawdzić, których cech "
         "model użył najczęściej do podejmowania decyzji. Poniżej ważność cech (feature importance) "
-        "dla modelu PM10."
+        "dla pomocniczego modelu Random Forest (prognoza w pętli; główna prognoza używa LightGBM)."
     )
     if PM10_FEATURE_IMPORTANCE.exists():
         imp = pd.read_csv(PM10_FEATURE_IMPORTANCE).head(10).copy()
@@ -1052,6 +1064,114 @@ with tab_weather:
                     fig.delaxes(axes[j])
                 fig.tight_layout()
                 st.pyplot(fig, use_container_width=True)
+
+# --- Tab: RÓŻA WIATRÓW (skąd wieje wiatr, gdy jest smog) ---
+WIND_NAMES_16 = ["północ", "pn.-pn.-wschód", "północny wschód", "wsch.-pn.-wschód", "wschód", "wsch.-pd.-wschód",
+                 "południowy wschód", "pd.-pd.-wschód", "południe", "pd.-pd.-zachód", "południowy zachód",
+                 "zach.-pd.-zachód", "zachód", "zach.-pn.-zachód", "północny zachód", "pn.-pn.-zachód"]
+
+
+def wind_sector16(deg):
+    """Numer sektora 0..15 (0 = północ, co 22,5 stopnia, zgodnie z ruchem wskazówek zegara)."""
+    return ((deg + 11.25) % 360 // 22.5).astype(int)
+
+
+with tab_wind:
+    st.subheader("🧭 Róża wiatrów — skąd wieje wiatr, gdy w Słupsku jest smog")
+    st.caption(
+        "Każdy „płatek” to kierunek, **z którego** wieje wiatr. Długość i kolor lewego wykresu = średnie PM10 przy wietrze "
+        "z tego kierunku, prawy pokazuje, jak często wiatr z niego wieje. Dzięki temu widać, skąd pochodzi zanieczyszczone "
+        "powietrze: z lądu (południe, wschód) czy znad Bałtyku (północ)."
+    )
+    wdf = load_csv(MERGED, ["timestamp"])
+    need_cols = {"timestamp", "PM10", "kierunek_wiatru", "predkosc_wiatru"}
+    if wdf.empty or not need_cols.issubset(wdf.columns):
+        st.info("Brak danych o kierunku wiatru. Uruchom `run_full_pipeline.bat` (pobiera pogodę IMGW z kierunkiem wiatru).")
+    else:
+        wdf = wdf[list(need_cols)].copy()
+        for c in ("PM10", "kierunek_wiatru", "predkosc_wiatru"):
+            wdf[c] = pd.to_numeric(wdf[c], errors="coerce")
+        wdf.loc[~wdf["PM10"].between(0, 500), "PM10"] = np.nan
+        w_c1, w_c2 = st.columns(2)
+        season_sel = w_c1.radio("Pora roku", ["Cały rok", "Sezon grzewczy (X–III)", "Poza sezonem (IV–IX)"], horizontal=True, key="wind_season")
+        span_sel = w_c2.radio("Okres danych", ["Wszystkie dane", "Ostatnie 12 miesięcy"], horizontal=True, key="wind_span")
+
+        wsel = wdf.copy()
+        if span_sel == "Ostatnie 12 miesięcy" and wsel["timestamp"].notna().any():
+            wsel = wsel[wsel["timestamp"] >= wsel["timestamp"].max() - pd.Timedelta(days=365)]
+        heating = wsel["timestamp"].dt.month.isin([10, 11, 12, 1, 2, 3])
+        if season_sel.startswith("Sezon"):
+            wsel = wsel[heating.loc[wsel.index]]
+        elif season_sel.startswith("Poza"):
+            wsel = wsel[~heating.loc[wsel.index]]
+
+        valid = wsel[(wsel["predkosc_wiatru"] > 0) & wsel["kierunek_wiatru"].notna() & wsel["PM10"].notna()].copy()
+        MIN_HOURS = 30
+        if len(valid) < 200:
+            st.warning(f"Za mało godzin z wiatrem i pomiarem PM10 ({len(valid)}) — zmień filtry.")
+        else:
+            valid["sektor"] = wind_sector16(valid["kierunek_wiatru"])
+            agg = valid.groupby("sektor").agg(srednie=("PM10", "mean"), godzin=("PM10", "size")).reindex(range(16))
+            agg["udzial"] = 100 * agg["godzin"].fillna(0) / agg["godzin"].fillna(0).sum()
+            overall = float(valid["PM10"].mean())
+            ok = agg["godzin"].fillna(0) >= MIN_HOURS
+
+            theta = np.deg2rad(np.arange(16) * 22.5)
+            width = 2 * np.pi / 16 * 0.88
+            fig_w, (ax_m, ax_f) = plt.subplots(1, 2, figsize=(11, 5.2), subplot_kw={"projection": "polar"})
+            vals = agg["srednie"].where(ok)
+            lo_v, hi_v = float(vals.min()), float(vals.max())
+            norm_v = (vals - lo_v) / (hi_v - lo_v) if hi_v > lo_v else vals * 0
+            colors = [plt.cm.YlOrRd(0.15 + 0.75 * v) if o and pd.notna(v) else "#cccccc" for v, o in zip(norm_v, ok)]
+            ax_m.bar(theta, vals.fillna(0), width=width, color=colors, edgecolor="white")
+            ax_m.plot(np.linspace(0, 2 * np.pi, 200), [overall] * 200, color="#333", lw=1, ls="--")
+            ax_m.set_title(f"Średnie PM10 [µg/m³] wg kierunku wiatru\n(linia przerywana = średnia {overall:.1f})", fontsize=10)
+            ax_f.bar(theta, agg["udzial"].fillna(0), width=width, color="#3b6ea5", edgecolor="white")
+            ax_f.set_title("Jak często wieje z danego kierunku [% godzin]", fontsize=10)
+            for ax in (ax_m, ax_f):
+                ax.set_theta_zero_location("N")
+                ax.set_theta_direction(-1)
+                ax.set_xticks(np.deg2rad(np.arange(0, 360, 45)))
+                ax.set_xticklabels(["N", "NE", "E", "SE", "S", "SW", "W", "NW"])
+                ax.tick_params(labelsize=9)
+            fig_w.tight_layout()
+            st.pyplot(fig_w, use_container_width=True)
+
+            best = agg["srednie"].where(ok).idxmax()
+            worst = agg["srednie"].where(ok).idxmin()
+            st.info(
+                f"**Najwyższe PM10:** wiatr z kierunku **{WIND_NAMES_16[int(best)]}** — średnio {agg.loc[best, 'srednie']:.1f} µg/m³ "
+                f"({int(agg.loc[best, 'godzin'])} godzin). **Najniższe:** wiatr z kierunku **{WIND_NAMES_16[int(worst)]}** — "
+                f"{agg.loc[worst, 'srednie']:.1f} µg/m³ ({int(agg.loc[worst, 'godzin'])} godzin). "
+                f"Szare płatki mają mniej niż {MIN_HOURS} godzin danych.",
+                icon="🧭",
+            )
+
+            # --- co teraz? ---
+            latest = wdf.dropna(subset=["kierunek_wiatru", "predkosc_wiatru"]).sort_values("timestamp").tail(1)
+            if not latest.empty:
+                lr = latest.iloc[0]
+                if lr["predkosc_wiatru"] <= 0:
+                    st.success(f"Teraz ({lr['timestamp']:%d.%m %H:%M}) jest bezwietrznie — kierunek nie ma znaczenia.", icon="🌬️")
+                else:
+                    cur = int(wind_sector16(pd.Series([float(lr["kierunek_wiatru"])])).iloc[0])
+                    cur_mean = agg.loc[cur, "srednie"]
+                    if pd.notna(cur_mean) and ok.loc[cur]:
+                        diff_pct = 100 * (cur_mean - overall) / overall
+                        trend = "wyższe" if diff_pct > 0 else "niższe"
+                        st.success(
+                            f"**Teraz** ({lr['timestamp']:%d.%m %H:%M}) wiatr wieje z kierunku **{WIND_NAMES_16[cur]}** "
+                            f"({lr['predkosc_wiatru']:.0f} m/s). Historycznie przy takim wietrze PM10 jest średnio "
+                            f"{cur_mean:.1f} µg/m³, czyli o {abs(diff_pct):.0f}% {trend} niż przeciętnie.",
+                            icon="🌬️",
+                        )
+            st.download_button("Pobierz różę wiatrów (PNG)", data=fig_bytes(fig_w, "png"),
+                               file_name="roza_wiatrow.png", mime="image/png")
+            st.caption(
+                "ℹ️ To **zależność statystyczna, a nie dowód przyczyny**: kierunek wiatru wiąże się też z innymi czynnikami "
+                "pogody (temperatura, inwersja). Wiatr znad lądu niesie dymy z palenisk i ruchu, znad Bałtyku — czystsze powietrze. "
+                "Źródło: pomiary PM10 GIOŚ (Słupsk, ul. Kniaziewicza) i pogoda IMGW (Ustka)."
+            )
 
 # --- Export historii PM (tak jak wcześniej) ---
 st.markdown("---")
