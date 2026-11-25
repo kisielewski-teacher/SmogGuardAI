@@ -1,0 +1,98 @@
+
+--- Drzewo #0 (max_depth=3) ---
+|--- PM10_lag1 <= 25.98
+|   |--- PM10_rollmean3 <= 13.16
+|   |   |--- PM10_lag1 <= 8.48
+|   |   |   |--- PM10_lag1 <= 6.03
+|   |   |   |   |--- truncated branch of depth 19
+|   |   |   |--- PM10_lag1 >  6.03
+|   |   |   |   |--- truncated branch of depth 16
+|   |   |--- PM10_lag1 >  8.48
+|   |   |   |--- PM10_lag1 <= 11.61
+|   |   |   |   |--- truncated branch of depth 20
+|   |   |   |--- PM10_lag1 >  11.61
+|   |   |   |   |--- truncated branch of depth 22
+|   |--- PM10_rollmean3 >  13.16
+|   |   |--- PM10_lag1 <= 17.59
+|   |   |   |--- PM10_rollmean24 <= 15.28
+|   |   |   |   |--- truncated branch of depth 24
+|   |   |   |--- PM10_rollmean24 >  15.28
+|   |   |   |   |--- truncated branch of depth 19
+|   |   |--- PM10_lag1 >  17.59
+|   |   |   |--- PM10_rollmean3 <= 20.60
+|   |   |   |   |--- truncated branch of depth 17
+|   |   |   |--- PM10_rollmean3 >  20.60
+|   |   |   |   |--- truncated branch of depth 17
+|--- PM10_lag1 >  25.98
+|   |--- PM10_lag1 <= 45.01
+|   |   |--- PM10_lag1 <= 33.57
+|   |   |   |--- PM10_rollmean12 <= 18.49
+|   |   |   |   |--- truncated branch of depth 8
+|   |   |   |--- PM10_rollmean12 >  18.49
+|   |   |   |   |--- truncated branch of depth 13
+|   |   |--- PM10_lag1 >  33.57
+|   |   |   |--- PM10_rollmean3 <= 28.55
+|   |   |   |   |--- truncated branch of depth 5
+|   |   |   |--- PM10_rollmean3 >  28.55
+|   |   |   |   |--- truncated branch of depth 13
+|   |--- PM10_lag1 >  45.01
+|   |   |--- PM10_rollmean3 <= 65.90
+|   |   |   |--- PM10_rollmean3 <= 43.73
+|   |   |   |   |--- truncated branch of depth 7
+|   |   |   |--- PM10_rollmean3 >  43.73
+|   |   |   |   |--- truncated branch of depth 8
+|   |   |--- PM10_rollmean3 >  65.90
+|   |   |   |--- PM10_lag1 <= 77.92
+|   |   |   |   |--- truncated branch of depth 4
+|   |   |   |--- PM10_lag1 >  77.92
+|   |   |   |   |--- truncated branch of depth 3
+
+
+--- Drzewo #1 (max_depth=3) ---
+|--- PM10_lag1 <= 25.99
+|   |--- PM10_rollmean3 <= 13.17
+|   |   |--- PM10_lag1 <= 8.46
+|   |   |   |--- PM10_lag1 <= 5.89
+|   |   |   |   |--- truncated branch of depth 17
+|   |   |   |--- PM10_lag1 >  5.89
+|   |   |   |   |--- truncated branch of depth 19
+|   |   |--- PM10_lag1 >  8.46
+|   |   |   |--- PM10_lag1 <= 11.62
+|   |   |   |   |--- truncated branch of depth 17
+|   |   |   |--- PM10_lag1 >  11.62
+|   |   |   |   |--- truncated branch of depth 19
+|   |--- PM10_rollmean3 >  13.17
+|   |   |--- PM10_lag1 <= 18.50
+|   |   |   |--- PM10_lag1 <= 14.49
+|   |   |   |   |--- truncated branch of depth 18
+|   |   |   |--- PM10_lag1 >  14.49
+|   |   |   |   |--- truncated branch of depth 18
+|   |   |--- PM10_lag1 >  18.50
+|   |   |   |--- PM10_rollmean3 <= 21.07
+|   |   |   |   |--- truncated branch of depth 16
+|   |   |   |--- PM10_rollmean3 >  21.07
+|   |   |   |   |--- truncated branch of depth 16
+|--- PM10_lag1 >  25.99
+|   |--- PM10_lag1 <= 49.58
+|   |   |--- PM10_lag1 <= 33.51
+|   |   |   |--- PM10_rollmean3 <= 29.63
+|   |   |   |   |--- truncated branch of depth 19
+|   |   |   |--- PM10_rollmean3 >  29.63
+|   |   |   |   |--- truncated branch of depth 10
+|   |   |--- PM10_lag1 >  33.51
+|   |   |   |--- PM10_rollmean3 <= 35.56
+|   |   |   |   |--- truncated branch of depth 14
+|   |   |   |--- PM10_rollmean3 >  35.56
+|   |   |   |   |--- truncated branch of depth 10
+|   |--- PM10_lag1 >  49.58
+|   |   |--- PM10_lag1 <= 74.93
+|   |   |   |--- PM10_rollmean3 <= 52.12
+|   |   |   |   |--- truncated branch of depth 7
+|   |   |   |--- PM10_rollmean3 >  52.12
+|   |   |   |   |--- truncated branch of depth 8
+|   |   |--- PM10_lag1 >  74.93
+|   |   |   |--- PM10_rollmean24 <= 27.73
+|   |   |   |   |--- value: [43.36]
+|   |   |   |--- PM10_rollmean24 >  27.73
+|   |   |   |   |--- truncated branch of depth 5
+

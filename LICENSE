@@ -1,0 +1,102 @@
+SmogGuardAI — Licencja Użytkownika Końcowego (EULA)
+Wersja 1.0 — 2026-09-27
+
+Copyright (c) 2026 [IMIĘ I NAZWISKO / NAZWA FIRMY — UZUPEŁNIĆ]
+Wszelkie prawa zastrzeżone.
+
+Niniejszy dokument jest umową licencyjną ("Licencja") pomiędzy [IMIĘ I NAZWISKO /
+NAZWA FIRMY — UZUPEŁNIĆ] ("Licencjodawca") a osobą lub podmiotem nabywającym
+dostęp do oprogramowania SmogGuardAI ("Licencjobiorca"). Instalując, kopiując
+lub w jakikolwiek inny sposób używając Oprogramowania, Licencjobiorca akceptuje
+warunki niniejszej Licencji.
+
+1. DEFINICJE
+
+   "Oprogramowanie" oznacza program komputerowy SmogGuardAI wraz z kodem
+   źródłowym, skryptami, wytrenowanymi modelami, dokumentacją oraz wszelkimi
+   plikami towarzyszącymi dostarczonymi przez Licencjodawcę, z wyłączeniem
+   bibliotek open-source stron trzecich wymienionych w THIRD_PARTY_LICENSES.md,
+   które podlegają własnym licencjom.
+
+2. UDZIELENIE LICENCJI
+
+   2.1. Z zastrzeżeniem przestrzegania warunków niniejszej Licencji oraz
+        uiszczenia uzgodnionej opłaty, Licencjodawca udziela Licencjobiorcy
+        niewyłącznej, nieprzenoszalnej licencji na instalację i używanie
+        Oprogramowania na [LICZBA] stanowisku/stanowiskach — UZUPEŁNIĆ zgodnie
+        z ustaleniami handlowymi (np. "1 stanowisko/instalacja", "użytek
+        wewnętrzny jednej organizacji", "bez limitu stanowisk w ramach jednej
+        organizacji").
+   2.2. Licencja nie obejmuje prawa do sublicencjonowania, odsprzedaży,
+        wynajmu ani innej formy dalszej dystrybucji Oprogramowania lub jego
+        kodu źródłowego osobom trzecim bez pisemnej zgody Licencjodawcy.
+
+3. OGRANICZENIA
+
+   Licencjobiorca nie może, bez pisemnej zgody Licencjodawcy:
+   a) dekompilować, poddawać inżynierii wstecznej ani w inny sposób próbować
+      odtworzyć kodu źródłowego Oprogramowania, poza zakresem wyraźnie
+      dozwolonym przez bezwzględnie obowiązujące przepisy prawa;
+   b) usuwać ani modyfikować informacji o prawach autorskich, znaków
+      towarowych lub atrybucji źródeł danych zawartych w Oprogramowaniu;
+   c) używać Oprogramowania do celów niezgodnych z prawem;
+   d) rozpowszechniać, publikować ani udostępniać Oprogramowania lub jego
+      kopii osobom trzecim.
+
+4. WŁASNOŚĆ
+
+   Oprogramowanie, w tym kod źródłowy, architektura, wytrenowane modele
+   uczenia maszynowego oraz dokumentacja, stanowi własność intelektualną
+   Licencjodawcy i jest chronione przepisami prawa autorskiego. Niniejsza
+   Licencja nie przenosi na Licencjobiorcę żadnych praw własności — wyłącznie
+   prawo do korzystania na warunkach tu opisanych.
+
+5. DANE ŹRÓDŁOWE I ATRYBUCJA
+
+   Oprogramowanie korzysta z publicznych danych GIOŚ (Główny Inspektorat
+   Ochrony Środowiska) oraz IMGW-PIB (Instytut Meteorologii i Gospodarki
+   Wodnej — Państwowy Instytut Badawczy), reużywanych zgodnie z przepisami
+   o ponownym wykorzystywaniu informacji sektora publicznego, z zachowaniem
+   wymaganej atrybucji źródła widocznej w interfejsie Oprogramowania.
+   Licencjobiorca nie może usuwać ani ukrywać tej atrybucji.
+
+6. BRAK GWARANCJI
+
+   OPROGRAMOWANIE DOSTARCZANE JEST "TAK JAK JEST" ("AS IS"), BEZ JAKICHKOLWIEK
+   GWARANCJI, WYRAŹNYCH ANI DOROZUMIANYCH, W TYM MIĘDZY INNYMI GWARANCJI
+   PRZYDATNOŚCI HANDLOWEJ, PRZYDATNOŚCI DO OKREŚLONEGO CELU ANI DOKŁADNOŚCI
+   PROGNOZ. PROGNOZY JAKOŚCI POWIETRZA GENEROWANE PRZEZ OPROGRAMOWANIE MAJĄ
+   CHARAKTER SZACUNKOWY I NIE MOGĄ ZASTĘPOWAĆ OFICJALNYCH KOMUNIKATÓW
+   ORGANÓW PAŃSTWOWYCH (GIOŚ, IMGW) W SYTUACJACH WYMAGAJĄCYCH DECYZJI
+   ZDROWOTNYCH LUB BEZPIECZEŃSTWA.
+
+7. OGRANICZENIE ODPOWIEDZIALNOŚCI
+
+   W MAKSYMALNYM ZAKRESIE DOZWOLONYM PRZEZ PRAWO, LICENCJODAWCA NIE PONOSI
+   ODPOWIEDZIALNOŚCI ZA JAKIEKOLWIEK SZKODY POŚREDNIE, WTÓRNE, PRZYPADKOWE
+   LUB WYNIKOWE POWSTAŁE W ZWIĄZKU Z UŻYWANIEM LUB NIEMOŻNOŚCIĄ UŻYWANIA
+   OPROGRAMOWANIA.
+
+8. WSPARCIE I AKTUALIZACJE
+
+   Zakres i czas trwania wsparcia technicznego oraz aktualizacji określa
+   odrębna umowa/oferta handlowa zawarta z Licencjobiorcą. Niniejsza Licencja
+   sama w sobie nie zobowiązuje Licencjodawcy do świadczenia wsparcia.
+
+9. ROZWIĄZANIE UMOWY
+
+   Licencja wygasa automatycznie w przypadku naruszenia przez Licencjobiorcę
+   któregokolwiek z jej warunków. Po wygaśnięciu Licencjobiorca zobowiązany
+   jest zaprzestać używania Oprogramowania i usunąć wszystkie jego kopie.
+
+10. PRAWO WŁAŚCIWE
+
+    Niniejsza Licencja podlega prawu polskiemu. Wszelkie spory rozstrzygane
+    będą przez sąd właściwy dla siedziby Licencjodawcy.
+
+---
+
+UWAGA DLA WŁAŚCICIELA PRODUKTU: ten plik jest szkicem do uzupełnienia i
+weryfikacji przez prawnika przed pierwszą sprzedażą — w szczególności pola
+oznaczone "UZUPEŁNIĆ" (nazwa podmiotu, model licencjonowania: liczba stanowisk
+vs. licencja organizacyjna, ew. okres wsparcia). Zobacz też TODO.md.

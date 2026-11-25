@@ -1,0 +1,98 @@
+
+--- Drzewo #0 (max_depth=3) ---
+|--- PM2.5_lag1 <= 18.66
+|   |--- PM2.5_rollmean3 <= 8.46
+|   |   |--- PM2.5_lag1 <= 5.10
+|   |   |   |--- PM2.5_rollmean3 <= 3.92
+|   |   |   |   |--- truncated branch of depth 17
+|   |   |   |--- PM2.5_rollmean3 >  3.92
+|   |   |   |   |--- truncated branch of depth 19
+|   |   |--- PM2.5_lag1 >  5.10
+|   |   |   |--- PM2.5_lag1 <= 6.71
+|   |   |   |   |--- truncated branch of depth 21
+|   |   |   |--- PM2.5_lag1 >  6.71
+|   |   |   |   |--- truncated branch of depth 21
+|   |--- PM2.5_rollmean3 >  8.46
+|   |   |--- PM2.5_lag1 <= 13.80
+|   |   |   |--- PM2.5_rollmean3 <= 11.07
+|   |   |   |   |--- truncated branch of depth 19
+|   |   |   |--- PM2.5_rollmean3 >  11.07
+|   |   |   |   |--- truncated branch of depth 19
+|   |   |--- PM2.5_lag1 >  13.80
+|   |   |   |--- PM2.5_rollmean3 <= 15.85
+|   |   |   |   |--- truncated branch of depth 15
+|   |   |   |--- PM2.5_rollmean3 >  15.85
+|   |   |   |   |--- truncated branch of depth 18
+|--- PM2.5_lag1 >  18.66
+|   |--- PM2.5_lag1 <= 35.59
+|   |   |--- PM2.5_lag1 <= 26.55
+|   |   |   |--- PM2.5_rollmean3 <= 20.77
+|   |   |   |   |--- truncated branch of depth 15
+|   |   |   |--- PM2.5_rollmean3 >  20.77
+|   |   |   |   |--- truncated branch of depth 13
+|   |   |--- PM2.5_lag1 >  26.55
+|   |   |   |--- PM2.5_rollmean3 <= 25.57
+|   |   |   |   |--- truncated branch of depth 8
+|   |   |   |--- PM2.5_rollmean3 >  25.57
+|   |   |   |   |--- truncated branch of depth 10
+|   |--- PM2.5_lag1 >  35.59
+|   |   |--- PM2.5_lag1 <= 53.42
+|   |   |   |--- PM2.5_rollmean12 <= 20.39
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |   |--- PM2.5_rollmean12 >  20.39
+|   |   |   |   |--- truncated branch of depth 10
+|   |   |--- PM2.5_lag1 >  53.42
+|   |   |   |--- PM2.5_lag1 <= 61.58
+|   |   |   |   |--- truncated branch of depth 4
+|   |   |   |--- PM2.5_lag1 >  61.58
+|   |   |   |   |--- truncated branch of depth 3
+
+
+--- Drzewo #1 (max_depth=3) ---
+|--- PM2.5_lag1 <= 18.72
+|   |--- PM2.5_rollmean3 <= 8.69
+|   |   |--- PM2.5_lag1 <= 5.16
+|   |   |   |--- PM2.5_lag1 <= 3.46
+|   |   |   |   |--- truncated branch of depth 16
+|   |   |   |--- PM2.5_lag1 >  3.46
+|   |   |   |   |--- truncated branch of depth 18
+|   |   |--- PM2.5_lag1 >  5.16
+|   |   |   |--- PM2.5_rollmean3 <= 7.43
+|   |   |   |   |--- truncated branch of depth 21
+|   |   |   |--- PM2.5_rollmean3 >  7.43
+|   |   |   |   |--- truncated branch of depth 17
+|   |--- PM2.5_rollmean3 >  8.69
+|   |   |--- PM2.5_lag1 <= 13.57
+|   |   |   |--- PM2.5_lag1 <= 10.99
+|   |   |   |   |--- truncated branch of depth 20
+|   |   |   |--- PM2.5_lag1 >  10.99
+|   |   |   |   |--- truncated branch of depth 17
+|   |   |--- PM2.5_lag1 >  13.57
+|   |   |   |--- PM2.5_rollmean3 <= 14.26
+|   |   |   |   |--- truncated branch of depth 14
+|   |   |   |--- PM2.5_rollmean3 >  14.26
+|   |   |   |   |--- truncated branch of depth 15
+|--- PM2.5_lag1 >  18.72
+|   |--- PM2.5_lag1 <= 34.44
+|   |   |--- PM2.5_lag1 <= 25.89
+|   |   |   |--- PM2.5_rollmean12 <= 16.51
+|   |   |   |   |--- truncated branch of depth 13
+|   |   |   |--- PM2.5_rollmean12 >  16.51
+|   |   |   |   |--- truncated branch of depth 12
+|   |   |--- PM2.5_lag1 >  25.89
+|   |   |   |--- PM2.5_rollmean3 <= 28.34
+|   |   |   |   |--- truncated branch of depth 12
+|   |   |   |--- PM2.5_rollmean3 >  28.34
+|   |   |   |   |--- truncated branch of depth 8
+|   |--- PM2.5_lag1 >  34.44
+|   |   |--- PM2.5_lag1 <= 59.18
+|   |   |   |--- PM2.5_lag1 <= 42.67
+|   |   |   |   |--- truncated branch of depth 10
+|   |   |   |--- PM2.5_lag1 >  42.67
+|   |   |   |   |--- truncated branch of depth 9
+|   |   |--- PM2.5_lag1 >  59.18
+|   |   |   |--- PM2.5_lag6 <= 36.17
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |   |--- PM2.5_lag6 >  36.17
+|   |   |   |   |--- truncated branch of depth 3
+

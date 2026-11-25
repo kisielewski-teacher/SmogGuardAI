@@ -1,0 +1,25 @@
+MODEL PM2.5 — BOOTSTRAP NA DANYCH SZACOWANYCH (nie w pełni zweryfikowanych)
+=========================================================================
+Wygenerowano przez: src/estimate_pm25_from_pm10.py
+
+Dlaczego bootstrap: lokalne źródło PM2.5 dla Słupska (Syngeos) nie ma API
+archiwalnego, tylko bieżący odczyt. Zebrano dotąd 21 realnych,
+równoległych pomiarów PM2.5+PM10 — za mało na trening Random Forest (próg: 72).
+
+Metodologia: PM2.5_szacowane = PM10_realne x współczynnik(sezon).
+Współczynnik = mediana PM2.5/PM10 z realnych par, osobno dla sezonu
+grzewczego i pozostałego okresu (bo spalanie zmienia relację drobny/gruby pył).
+
+Współczynniki:
+- sezon grzewczy (XI-III), n=9: 0.791
+- pozostały okres, n=12: 0.593
+- globalny (fallback), n=21: 0.632
+
+Dane treningowe: 22 realnych pomiarów PM2.5 + 39930 godzin szacowanych z PM10.
+
+WAŻNE: to NIE są zweryfikowane pomiary. To statystyczny szacunek z bardzo
+małej próby kalibracyjnej (wysoka wariancja: odchylenie std. współczynnika
+w sezonie grzewczym = 0.39, poza sezonem = 0.42).
+Model wytrenowany na tej podstawie powinien być tak oznaczony w dashboardzie
+i zastąpiony modelem na realnych danych, gdy tylko zbierze się >=72h
+prawdziwych pomiarów Syngeos (harmonogram godzinowy dokłada je automatycznie).

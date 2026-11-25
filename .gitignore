@@ -3,10 +3,9 @@
 venv/
 __pycache__/
 *.pyc
-/data/
-/models/
 /logs/
-/outputs/
+/models/pm10_rf.pkl
+/outputs/*backtest*.csv
 .env
 *.log
 .ipynb_checkpoints/
