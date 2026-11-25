@@ -5,6 +5,7 @@
   // przepisywanie tekstu bez realnej korzyści.
   "config": {
     "default": true,
-    "MD013": false
+    "MD013": false,
+    "MD024": { "siblings_only": true }
   }
 }

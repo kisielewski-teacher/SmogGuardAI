@@ -16,6 +16,20 @@ i w panelu (pasek boczny).
    w `VERSION` zgadza się z najnowszym wpisem tutaj.
 4. Oznacz commit tagiem i wyślij go: `git tag -a vX.Y.Z -m "Wersja X.Y.Z"`, potem `git push origin vX.Y.Z`.
 
+## [1.2.1] — 2026-11-25
+
+### Naprawiono
+
+- Zakładka „Predykcja” pokazywała „Brak prognozy dla wybranego horyzontu”, bo prognoza w repozytorium była
+  z 29.10, a pomiary sięgały 25.11. Prognoza jest odświeżona do 28.11.
+- `START.bat` sam odświeża prognozę (`odswiez_prognoze.bat`: świeże dane, predykcja 72 h, scalenie wyników),
+  gdy plik z prognozą jest starszy niż 6 godzin. Model nie jest trenowany od nowa.
+
+### Dodano
+
+- `Aktualizuj_Edge.bat`: aktualizacja przeglądarki Edge. Zbyt stary Edge pokazuje białą stronę zamiast panelu.
+- Panel oznacza stronę jako „nie tłumacz”, żeby automatyczne tłumaczenie przeglądarki nie psuło interfejsu.
+
 ## [1.2.0] — 2026-10-29
 
 ### Dodano

@@ -26,6 +26,26 @@ except Exception:
 
 st.set_page_config(page_title="SmogGuardAI — Prognoza PM10 Słupsk", layout="wide", page_icon="🌫️")
 
+# Przegladarka (Edge/Chrome) potrafi automatycznie tlumaczyc strone, co rozwala interfejs
+# Streamlit (React) i zostawia biala strone. Oznaczamy strone jako "nie tlumacz".
+import streamlit.components.v1 as _components
+_components.html(
+    """<script>
+    try {
+      const d = window.parent.document;
+      d.documentElement.setAttribute('translate', 'no');
+      d.documentElement.classList.add('notranslate');
+      d.documentElement.setAttribute('lang', 'pl');
+      if (!d.querySelector('meta[name=google][content=notranslate]')) {
+        const m = d.createElement('meta');
+        m.name = 'google'; m.content = 'notranslate';
+        d.head.appendChild(m);
+      }
+    } catch (e) {}
+    </script>""",
+    height=0,
+)
+
 try:
     BASE = Path(__file__).resolve().parents[1]
 except Exception:
